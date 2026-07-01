@@ -46,6 +46,22 @@ This writes two files into `dist/`:
 
 This mirrors the two Variable collections in the Figma file exactly.
 
+## Code Connect
+
+The Button has a Figma Code Connect mapping (`src/components/Button.figma.tsx`) linking the Figma
+Button component set to the React `Button`. It is **written and locally valid** (`npm run connect:parse`
+parses it with no errors) but **not published**: custom Code Connect requires a Figma
+**Organization/Enterprise** seat, and this repo is on a Professional plan.
+
+On an Org/Enterprise seat it goes live with:
+
+```bash
+npm run connect:publish
+```
+
+That requires a `FIGMA_ACCESS_TOKEN` (with the Code Connect scope) set as an environment variable.
+**Never commit the token.**
+
 ## Later
 
 When the system grows, this hand-rolled script can be swapped for **Style Dictionary** (the
