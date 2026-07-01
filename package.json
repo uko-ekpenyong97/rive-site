@@ -4,6 +4,27 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:tokens": "node build-tokens.mjs"
+    "build:tokens": "node build-tokens.mjs",
+    "dev": "vite",
+    "prebuild": "npm run build:tokens",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "connect:parse": "figma connect parse",
+    "connect:publish": "figma connect publish"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@figma/code-connect": "^1.4.8",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.3"
   }
 }

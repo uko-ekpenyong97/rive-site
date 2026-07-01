@@ -1,0 +1,64 @@
+.btn {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: var(--font-size-body-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 120ms, opacity 120ms;
+  line-height: 1;
+}
+
+/* Primary */
+.btn[data-variant="primary"] {
+  background: var(--accent-default);
+  color: var(--accent-on-accent);
+}
+.btn[data-variant="primary"]:hover,
+.btn[data-variant="primary"][data-state="hover"] {
+  background: var(--accent-hover);
+}
+
+/* Secondary */
+.btn[data-variant="secondary"] {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+.btn[data-variant="secondary"]:hover,
+.btn[data-variant="secondary"][data-state="hover"] {
+  background: var(--surface-overlay);
+}
+
+/* Ghost */
+.btn[data-variant="ghost"] {
+  background: transparent;
+  color: var(--text-primary);
+}
+.btn[data-variant="ghost"]:hover,
+.btn[data-variant="ghost"][data-state="hover"] {
+  background: var(--surface-default);
+}
+
+/* Disabled */
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* Keep disabled buttons from changing background on hover */
+.btn[data-variant="primary"]:disabled:hover {
+  background: var(--accent-default);
+}
+.btn[data-variant="secondary"]:disabled:hover {
+  background: var(--surface-raised);
+}
+.btn[data-variant="ghost"]:disabled:hover {
+  background: transparent;
+}
+
+/* Focus */
+.btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
