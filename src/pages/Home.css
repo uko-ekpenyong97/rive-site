@@ -1,0 +1,141 @@
+.home {
+  background: var(--surface-canvas);
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+  /* 96px desktop side gutter (sits outside the 1248px content column). */
+  padding: 0 var(--space-24);
+  transition: background var(--duration-base) var(--ease-standard);
+}
+
+/* Centered content column matching the 1248px comp width. */
+.home .container {
+  max-width: 1248px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* -------------------------------------------------------------------- Hero */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding-bottom: var(--space-24);
+}
+
+.hero__body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  min-height: 620px;
+}
+
+/* Copy column */
+.hero__copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.hero__eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--font-size-eyebrow);
+  color: var(--text-accent);
+  letter-spacing: 0.08em;
+}
+
+.hero__title {
+  margin: 0;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.08;
+  color: var(--text-heading);
+}
+
+.hero__subhead {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.hero__range {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.hero__ctas {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* Demo column */
+.hero__demo {
+  flex: 0 0 620px;
+  align-self: stretch;
+}
+
+/* ------------------------------------------------------------- Proof strip */
+
+.hero__proof {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.hero__proof-label {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.hero__proof-row {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.hero__proof-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hero__proof-thumb {
+  height: 56px;
+  background: var(--surface-overlay);
+  border-radius: var(--radius-md);
+}
+
+.hero__proof-caption {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ---------------------------------------------------- Responsive: stacked */
+
+@media (max-width: 1024px) {
+  .home {
+    padding: 0 var(--space-8);
+  }
+
+  .hero__body {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+  }
+
+  .hero__demo {
+    flex: 0 0 auto;
+    height: 360px;
+    width: 100%;
+  }
+}
