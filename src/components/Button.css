@@ -1,4 +1,7 @@
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
@@ -8,6 +11,7 @@
   cursor: pointer;
   transition: background-color 120ms, opacity 120ms;
   line-height: 1;
+  text-decoration: none;
 }
 
 /* Primary */

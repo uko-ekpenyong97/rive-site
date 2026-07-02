@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.text-link {
+  font-family: var(--font-body);
+  font-size: var(--font-size-body-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 240ms;
+  align-self: flex-start;
+}
+.text-link:hover {
+  color: var(--text-accent);
+}

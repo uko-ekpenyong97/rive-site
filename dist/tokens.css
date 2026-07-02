@@ -76,9 +76,16 @@
   --surface-canvas: var(--neutral-0);
   --surface-default: var(--neutral-100);
   --surface-raised: var(--neutral-200);
+  --surface-overlay: var(--neutral-200);
   --text-primary: var(--neutral-1000);
+  --text-heading: var(--neutral-1000);
   --text-secondary: var(--neutral-500);
+  --text-muted: var(--neutral-500);
   --text-accent: var(--amber-500);
+  --border-subtle: var(--neutral-200);
+  --border-default: var(--neutral-200);
   --accent-default: var(--amber-500);
+  --accent-hover: var(--amber-600);
   --accent-on-accent: var(--neutral-1000);
+  --focus-ring: var(--amber-500);
 }

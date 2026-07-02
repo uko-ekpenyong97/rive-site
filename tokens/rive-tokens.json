@@ -64,16 +64,27 @@
       "surface": {
         "canvas":  { "$type": "color", "$value": "{primitive.neutral.0}" },
         "default": { "$type": "color", "$value": "{primitive.neutral.100}" },
-        "raised":  { "$type": "color", "$value": "{primitive.neutral.200}" }
+        "raised":  { "$type": "color", "$value": "{primitive.neutral.200}" },
+        "overlay": { "$type": "color", "$value": "{primitive.neutral.200}" }
       },
       "text": {
         "primary":   { "$type": "color", "$value": "{primitive.neutral.1000}" },
+        "heading":   { "$type": "color", "$value": "{primitive.neutral.1000}" },
         "secondary": { "$type": "color", "$value": "{primitive.neutral.500}" },
+        "muted":     { "$type": "color", "$value": "{primitive.neutral.500}" },
         "accent":    { "$type": "color", "$value": "{primitive.amber.500}" }
+      },
+      "border": {
+        "subtle":  { "$type": "color", "$value": "{primitive.neutral.200}" },
+        "default": { "$type": "color", "$value": "{primitive.neutral.200}" }
       },
       "accent": {
         "default":   { "$type": "color", "$value": "{primitive.amber.500}" },
+        "hover":     { "$type": "color", "$value": "{primitive.amber.600}" },
         "on-accent": { "$type": "color", "$value": "{primitive.neutral.1000}" }
+      },
+      "focus": {
+        "ring": { "$type": "color", "$value": "{primitive.amber.500}" }
       }
     }
   },
