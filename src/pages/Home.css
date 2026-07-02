@@ -15,6 +15,43 @@
   box-sizing: border-box;
 }
 
+/* Generous separation between the hero and the workflow section. */
+.home .workflow-stack {
+  margin-top: 160px;
+  /* Bottom padding lets the last sticky card fully release before the next
+     section's header scrolls in — no pinned-card / bento-header collision. */
+  padding-bottom: var(--space-24);
+}
+
+/* Same generous separation before the use-case bento section. */
+.home .use-case-bento {
+  margin-top: 160px;
+}
+
+/* Same generous separation before the stats band. */
+.home .stats-band {
+  margin-top: 160px;
+}
+
+/* Same generous separation before the audience rails. */
+.home .audience-rails {
+  margin-top: 160px;
+}
+
+/* Same generous separation before the developer zone. */
+.home .developer-zone {
+  margin-top: 160px;
+}
+
+/* Same generous separation before the community showcase. */
+.home .community-showcase {
+  margin-top: 160px;
+}
+
+/* FinalCTA and Footer manage their own spacing: FinalCTA has generous
+   vertical padding (var(--space-24) top/bottom) and the Footer's top hairline
+   ends the page — so neither takes the standard 160px section margin. */
+
 /* -------------------------------------------------------------------- Hero */
 
 .hero {

@@ -1,0 +1,104 @@
+.workflow-stack {
+  /* Tunable knobs for the sticky stack mechanic. */
+  --stack-stagger: var(--space-6);
+  --stack-travel: 240px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* --------------------------------------------------------------- Sticky stack */
+
+.workflow-stack__cards {
+  position: relative;
+}
+
+/* Later cards start lower in the flow so they scroll up into the pin. */
+.workflow-stack__card + .workflow-stack__card {
+  margin-top: var(--stack-travel);
+}
+
+.workflow-stack__card {
+  /*
+   * Each card pins slightly lower than the previous one, so earlier cards'
+   * top edges peek above like stacked paper. DOM order handles paint
+   * stacking (later cards paint on top), so no z-index is needed.
+   */
+  position: sticky;
+  top: calc(96px + var(--card-index) * var(--stack-stagger));
+
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+  align-items: center;
+  min-height: 520px;
+  padding: var(--space-8);
+
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------------ Card copy */
+
+.workflow-stack__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.workflow-stack__step {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.workflow-stack__card-eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--font-size-eyebrow);
+  color: var(--text-accent);
+  letter-spacing: 0.08em;
+}
+
+.workflow-stack__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.15;
+  color: var(--text-heading);
+}
+
+.workflow-stack__body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* Identical media geometry on every card, so the artifact appears to persist. */
+.workflow-stack__demo {
+  width: 100%;
+  height: 380px;
+}
+
+/* ---------------------------------------------------- Responsive: single column */
+
+@media (max-width: 1024px) {
+  .workflow-stack {
+    --stack-stagger: var(--space-4);
+    --stack-travel: 160px;
+  }
+
+  .workflow-stack__card {
+    grid-template-columns: 1fr;
+    padding: var(--space-6);
+  }
+
+  .workflow-stack__demo {
+    height: 260px;
+  }
+}

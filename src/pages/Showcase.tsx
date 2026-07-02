@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Button, { type ButtonVariant } from "../components/Button";
 import BentoCell, { type BentoCellSize } from "../components/BentoCell";
+import UseCaseBento from "../components/UseCaseBento";
 
 type Theme = "dark" | "light";
 
@@ -212,67 +213,8 @@ function BentoSection() {
         </div>
       </div>
 
-      {/* Use-case grid — mirrors the Figma arrangement */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-        <h3 style={{ ...labelStyle, textTransform: "uppercase" }}>Use-case grid</h3>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gridTemplateRows: "420px 360px 280px",
-            gap: "var(--space-6)",
-          }}
-        >
-          <BentoCell
-            size="large"
-            featured
-            eyebrow="PRODUCT UI"
-            title="Interfaces that respond in real time"
-            description="State-driven components running natively in your product."
-            href="#"
-            style={{ gridColumn: "1 / 3", gridRow: 1 }}
-          />
-          <BentoCell
-            size="small"
-            eyebrow="GAME UI"
-            title="Menus and HUDs at engine speed"
-            href="#"
-            style={{ gridColumn: 3, gridRow: 1 }}
-          />
-          <BentoCell
-            size="small"
-            eyebrow="WEBSITES"
-            title="Sites that respond to every visitor"
-            href="#"
-            style={{ gridColumn: 1, gridRow: 2 }}
-          />
-          <BentoCell
-            size="small"
-            eyebrow="AUTOMOTIVE"
-            title="Dashboards at 120fps"
-            href="#"
-            style={{ gridColumn: 2, gridRow: 2 }}
-          />
-          <BentoCell
-            size="small"
-            eyebrow="FILM, TV & BROADCAST"
-            title="Live graphics that never miss"
-            href="#"
-            style={{ gridColumn: 3, gridRow: 2 }}
-          />
-          <BentoCell
-            size="wide"
-            eyebrow="CAMPAIGNS"
-            title="Brand moments like Spotify Wrapped"
-            description="300M users engaged. 630M shares. Built in Rive."
-            href="#"
-            style={{ gridColumn: "1 / -1", gridRow: 3 }}
-          />
-        </div>
-        <a href="#" className="text-link">
-          Explore all use cases →
-        </a>
-      </div>
+      {/* Use-case grid — now the shared Home section component (one source of truth) */}
+      <UseCaseBento />
     </section>
   );
 }

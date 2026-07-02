@@ -71,7 +71,7 @@
         "primary":   { "$type": "color", "$value": "{primitive.neutral.1000}" },
         "heading":   { "$type": "color", "$value": "{primitive.neutral.1000}" },
         "secondary": { "$type": "color", "$value": "{primitive.neutral.500}" },
-        "muted":     { "$type": "color", "$value": "{primitive.neutral.500}" },
+        "muted":     { "$type": "color", "$value": "{primitive.neutral.400}" },
         "accent":    { "$type": "color", "$value": "{primitive.amber.500}" }
       },
       "border": {
