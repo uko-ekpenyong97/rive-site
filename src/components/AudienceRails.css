@@ -1,0 +1,53 @@
+.audience-rails {
+  display: flex;
+  flex-direction: column;
+}
+
+.audience-rails__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+}
+
+/* Each rail: a static, always-visible column. Top hairline (not left) so it
+   reads differently from the StatsBand's left-hairline stats. */
+.audience-rails__rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+}
+
+.audience-rails__marker {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.audience-rails__headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.15;
+  color: var(--text-heading);
+}
+
+.audience-rails__body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* ---------------------------------------------------- Responsive: single column */
+
+@media (max-width: 1024px) {
+  .audience-rails__grid {
+    grid-template-columns: 1fr;
+  }
+}

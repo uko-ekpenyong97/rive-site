@@ -1,0 +1,111 @@
+.developer-zone {
+  display: flex;
+  flex-direction: column;
+}
+
+.developer-zone__grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+  align-items: start;
+}
+
+/* ------------------------------------------------------------------ Copy column */
+
+.developer-zone__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.developer-zone__body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.developer-zone__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.developer-zone__pill {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+}
+
+.developer-zone__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+/* ------------------------------------------------------------------- Code panel */
+
+.developer-zone__panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.developer-zone__titlebar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.developer-zone__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-default);
+}
+
+.developer-zone__filename {
+  margin-left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.developer-zone__code {
+  margin: 0;
+  padding: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-code);
+  line-height: 1.7;
+  color: var(--text-secondary);
+  overflow-x: auto;
+}
+
+/* Three-tone token highlighting */
+.dz-str {
+  color: var(--text-accent);
+}
+.dz-com {
+  color: var(--text-muted);
+}
+.dz-kw {
+  color: var(--text-primary);
+}
+
+/* ---------------------------------------------------- Responsive: single column */
+
+@media (max-width: 1024px) {
+  .developer-zone__grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,50 @@
+.community-showcase {
+  display: flex;
+  flex-direction: column;
+}
+
+.community-showcase__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+}
+
+.community-showcase__tile {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.community-showcase__thumb {
+  aspect-ratio: 4 / 3;
+  background: var(--surface-overlay);
+  border-radius: var(--radius-md);
+}
+
+.community-showcase__caption {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* The 'Explore the community' link sits at the start, below the grid. */
+.community-showcase .text-link {
+  align-self: flex-start;
+  margin-top: var(--space-6);
+}
+
+/* ---------------------------------------------------------------- Responsive */
+
+@media (max-width: 1024px) {
+  .community-showcase__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .community-showcase__grid {
+    grid-template-columns: 1fr;
+  }
+}

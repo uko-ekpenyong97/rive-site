@@ -1,0 +1,35 @@
+.use-case-bento {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* ---------------------------------------------------------------------- Grid */
+
+.use-case-bento__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 420px 360px 280px;
+  gap: var(--space-6);
+}
+
+/* The 'Explore all use cases' link sits below the grid, not inside it. */
+.use-case-bento .text-link {
+  align-self: flex-start;
+}
+
+/* ---------------------------------------------------- Responsive: single column */
+
+@media (max-width: 1024px) {
+  .use-case-bento__grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-rows: minmax(280px, auto);
+  }
+
+  /* Collapse the explicit desktop placement so cells flow in a single column. */
+  .use-case-bento__grid > * {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+}

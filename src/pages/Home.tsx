@@ -1,6 +1,14 @@
 import Button from "../components/Button";
 import DemoSlot from "../components/DemoSlot";
 import Nav from "../components/Nav";
+import WorkflowStack from "../components/WorkflowStack";
+import UseCaseBento from "../components/UseCaseBento";
+import StatsBand from "../components/StatsBand";
+import AudienceRails from "../components/AudienceRails";
+import DeveloperZone from "../components/DeveloperZone";
+import CommunityShowcase from "../components/CommunityShowcase";
+import FinalCTA from "../components/FinalCTA";
+import Footer from "../components/Footer";
 import "./Home.css";
 
 const PROOF_THUMBS = [
@@ -66,6 +74,22 @@ function Home() {
             </div>
           </div>
         </section>
+
+        <WorkflowStack />
+
+        <UseCaseBento />
+
+        <StatsBand />
+
+        <AudienceRails />
+
+        <DeveloperZone />
+
+        <CommunityShowcase />
+
+        <FinalCTA />
+
+        <Footer />
       </div>
     </div>
   );
