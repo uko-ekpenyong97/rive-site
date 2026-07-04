@@ -1,11 +1,15 @@
 .home {
-  background: var(--surface-canvas);
+  /* Transparent so the fixed DotField shows through empty space; the page
+     canvas color now lives on <body>. z-index:1 lifts content above the
+     substrate (which sits at z-index:0). */
+  position: relative;
+  z-index: 1;
+  background: transparent;
   min-height: 100vh;
   width: 100%;
   box-sizing: border-box;
   /* 96px desktop side gutter (sits outside the 1248px content column). */
   padding: 0 var(--space-24);
-  transition: background var(--duration-base) var(--ease-standard);
 }
 
 /* Centered content column matching the 1248px comp width. */
@@ -13,6 +17,13 @@
   max-width: 1248px;
   margin: 0 auto;
   box-sizing: border-box;
+}
+
+/* Logo marquee sits directly below the hero (Stripe's hero → logo-wall).
+   140px keeps the hero breathing now that the proof strip is gone — the middle
+   of the ~120–160px target, and consistent with the section rhythm below. */
+.home .marquee {
+  margin-top: 140px;
 }
 
 /* Generous separation between the hero and the workflow section. */
@@ -57,8 +68,6 @@
 .hero {
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
-  padding-bottom: var(--space-24);
 }
 
 .hero__body {
@@ -116,45 +125,6 @@
 .hero__demo {
   flex: 0 0 620px;
   align-self: stretch;
-}
-
-/* ------------------------------------------------------------- Proof strip */
-
-.hero__proof {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.hero__proof-label {
-  font-family: var(--font-display);
-  font-size: 12px;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-}
-
-.hero__proof-row {
-  display: flex;
-  gap: var(--space-6);
-}
-
-.hero__proof-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.hero__proof-thumb {
-  height: 56px;
-  background: var(--surface-overlay);
-  border-radius: var(--radius-md);
-}
-
-.hero__proof-caption {
-  font-family: var(--font-body);
-  font-size: 12px;
-  color: var(--text-secondary);
 }
 
 /* ---------------------------------------------------- Responsive: stacked */
