@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build:tokens": "node build-tokens.mjs",
+    "logos:normalize": "node scripts/normalize-logos.mjs",
     "dev": "vite",
     "prebuild": "npm run build:tokens",
     "build": "tsc -b && vite build",
@@ -26,6 +27,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.6.3",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "vite-plugin-svgr": "^5.2.0"
   }
 }

@@ -1,0 +1,121 @@
+.marquee {
+  /* Tunable knobs. Duration math (keep the linear px/s calm):
+     15 logos × (160px box + 72px gap) ≈ 3480px per copy. translateX(-50%)
+     travels exactly one copy, so speed = copyWidth / duration. At 90s that's
+     ~39px/s — matching the original 12-logo strip's ~34px/s cadence. */
+  --marquee-duration: 90s;
+  --logo-gap: 72px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Optional micro-label above the strip. */
+.marquee__label {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* Full-bleed band: clips the moving track and fades both edges. */
+.marquee__viewport {
+  overflow: hidden;
+  /* Soft edge fade so logos enter/exit without a hard cut (alpha only). */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--space-12),
+    #000 calc(100% - var(--space-12)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--space-12),
+    #000 calc(100% - var(--space-12)),
+    transparent
+  );
+}
+
+.marquee__track {
+  display: flex;
+  width: max-content;
+  animation: marquee var(--marquee-duration) linear infinite;
+}
+
+.marquee__group {
+  display: flex;
+  align-items: center;
+}
+
+/* Every logo sits in an IDENTICAL box (Stripe's model). Whitespace comes from
+   a trailing margin — not flex `gap` — so each copy's width includes its own
+   trailing gap, and translateX(-50%) lands copy 2's first logo exactly where
+   copy 1's was: a seamless wrap with no half-gap jump. */
+.marquee__logo {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 160px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline-end: var(--logo-gap);
+  color: var(--text-secondary);
+  opacity: 0.75;
+  transition: color 300ms var(--ease-standard),
+    opacity 300ms var(--ease-standard);
+}
+
+/* Fit within the box, then apply the per-brand optical scale. */
+.marquee__svg {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  transform: scale(var(--logo-scale, 1));
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* -------------------------------------------------------------- Interaction */
+
+/* Hovering (or keyboard-focusing) the strip pauses it and dims every logo... */
+.marquee:hover .marquee__track,
+.marquee:focus-within .marquee__track {
+  animation-play-state: paused;
+}
+.marquee:hover .marquee__logo,
+.marquee:focus-within .marquee__logo {
+  opacity: 0.35;
+}
+
+/* ...except the one under the cursor / keyboard focus, which lifts. */
+.marquee .marquee__logo:hover,
+.marquee .marquee__logo:focus-visible {
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.marquee__logo:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+/* ------------------------------------------------------------- Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track {
+    animation: none;
+  }
+}
