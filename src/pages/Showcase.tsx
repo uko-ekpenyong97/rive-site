@@ -39,12 +39,13 @@ function Showcase() {
   return (
     <div
       style={{
+        position: "relative",
+        zIndex: 1,
         minHeight: "100vh",
         width: "100%",
-        background: "var(--surface-canvas)",
+        background: "transparent",
         padding: "var(--space-8)",
         boxSizing: "border-box",
-        transition: "background var(--duration-base) var(--ease-standard)",
         display: "flex",
         flexDirection: "column",
         gap: "var(--space-16)",
@@ -91,9 +92,30 @@ function Showcase() {
           </h1>
         </div>
 
-        <Button variant="secondary" onClick={toggleTheme}>
-          {theme === "dark" ? "Switch to light" : "Switch to dark"}
-        </Button>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: "var(--space-2)",
+          }}
+        >
+          <Button variant="secondary" onClick={toggleTheme}>
+            {theme === "dark" ? "Switch to light" : "Switch to dark"}
+          </Button>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "11px",
+              color: "var(--text-muted)",
+              textAlign: "right",
+              maxWidth: "320px",
+            }}
+          >
+            Light mode is a token-system capability demo — the shipped site is
+            dark-only, per Rive's brand.
+          </span>
+        </div>
       </header>
 
       <ButtonSection />

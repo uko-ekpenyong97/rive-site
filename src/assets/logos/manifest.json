@@ -1,0 +1,92 @@
+[
+ {
+  "brand": "adobe",
+  "file": "adobe.svg",
+  "viewBox": "0 0 512 134",
+  "aspect": 3.821
+ },
+ {
+  "brand": "atlassian",
+  "file": "atlassian.svg",
+  "viewBox": "0 0 539.996 66.959",
+  "aspect": 8.065
+ },
+ {
+  "brand": "brilliant",
+  "file": "brilliant.svg",
+  "viewBox": "0 0 114 27",
+  "aspect": 4.222
+ },
+ {
+  "brand": "dropbox",
+  "file": "dropbox.svg",
+  "viewBox": "0 0 472 128",
+  "aspect": 3.688
+ },
+ {
+  "brand": "duolingo",
+  "file": "duolingo.svg",
+  "viewBox": "0 0 400 94",
+  "aspect": 4.255
+ },
+ {
+  "brand": "figma",
+  "file": "figma.svg",
+  "viewBox": "0 0 1024 640",
+  "aspect": 1.6
+ },
+ {
+  "brand": "google",
+  "file": "google.svg",
+  "viewBox": "0 0 512 168",
+  "aspect": 3.048
+ },
+ {
+  "brand": "linkedin",
+  "file": "linkedin.svg",
+  "viewBox": "0 0 512 128",
+  "aspect": 4
+ },
+ {
+  "brand": "notion",
+  "file": "notion.svg",
+  "viewBox": "0 0 512 178",
+  "aspect": 2.876
+ },
+ {
+  "brand": "pepsi",
+  "file": "pepsi.svg",
+  "viewBox": "0 0 1992 598",
+  "aspect": 3.331
+ },
+ {
+  "brand": "philips",
+  "file": "philips.svg",
+  "viewBox": "0 0 270 50",
+  "aspect": 5.4
+ },
+ {
+  "brand": "samsung",
+  "file": "samsung.svg",
+  "viewBox": "0 0 512 79",
+  "aspect": 6.481
+ },
+ {
+  "brand": "sonos",
+  "file": "sonos.svg",
+  "viewBox": "0 0 24 24",
+  "aspect": 1
+ },
+ {
+  "brand": "soundcloud",
+  "file": "soundcloud.svg",
+  "viewBox": "0 0 256 145",
+  "aspect": 1.766
+ },
+ {
+  "brand": "spotify",
+  "file": "spotify.svg",
+  "viewBox": "0 0 512 160",
+  "aspect": 3.2
+ }
+]

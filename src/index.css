@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* The page canvas color lives on <body> so the fixed DotField substrate sits
+   directly above it and page wrappers can be transparent. */
+body {
+  min-height: 100vh;
+  background: var(--surface-canvas);
+  transition: background var(--duration-base) var(--ease-standard);
+}
+
 .text-link {
   font-family: var(--font-body);
   font-size: var(--font-size-body-sm);

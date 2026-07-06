@@ -1,6 +1,7 @@
 import Button from "../components/Button";
 import DemoSlot from "../components/DemoSlot";
 import Nav from "../components/Nav";
+import LogoMarquee from "../components/LogoMarquee";
 import WorkflowStack from "../components/WorkflowStack";
 import UseCaseBento from "../components/UseCaseBento";
 import StatsBand from "../components/StatsBand";
@@ -10,14 +11,6 @@ import CommunityShowcase from "../components/CommunityShowcase";
 import FinalCTA from "../components/FinalCTA";
 import Footer from "../components/Footer";
 import "./Home.css";
-
-const PROOF_THUMBS = [
-  "Spotify Wrapped",
-  "Duolingo",
-  "LinkedIn",
-  "Disney",
-  "Notion",
-];
 
 function Home() {
   return (
@@ -58,22 +51,9 @@ function Home() {
               label="● HERO RIVE DEMO — LIVE, HOVER, DRAG, SCRUB"
             />
           </div>
-
-          {/* Proof strip */}
-          <div className="hero__proof">
-            <span className="hero__proof-label">
-              IN PRODUCTS REACHING 2 BILLION PEOPLE
-            </span>
-            <div className="hero__proof-row">
-              {PROOF_THUMBS.map((name) => (
-                <div key={name} className="hero__proof-item">
-                  <div className="hero__proof-thumb" />
-                  <span className="hero__proof-caption">{name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </section>
+
+        <LogoMarquee />
 
         <WorkflowStack />
 

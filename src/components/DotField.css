@@ -1,0 +1,8 @@
+.dot-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* The canvas reads this at runtime to derive the dot color from tokens. */
+  color: var(--text-primary);
+}
