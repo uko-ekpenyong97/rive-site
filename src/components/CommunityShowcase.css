@@ -1,8 +1,126 @@
 .community-showcase {
+  /* Duration knob: one full row traverses one tile-set copy in this time.
+     Per copy = 8 × (280px tile + 16px gap) = 2368px; translateX(-50%) travels
+     exactly one copy, so 100s ≈ 24px/s — a calm, readable drift. */
+  --wall-duration: 100s;
+
   display: flex;
   flex-direction: column;
 }
 
+/* ---------------------------------------------------------------- Full-bleed */
+
+/* The wall is the page's ONE deliberate break-out: the header and link above/
+   below stay in the 1248px column, but this band spans the whole viewport.
+   50% resolves against the (centered) section width, so calc(50% - 50vw)
+   reaches exactly the left viewport edge. overflow-x clips the moving tracks;
+   it lives here (not on <body>, which would break WorkflowStack's sticky). */
+.community-showcase__wall {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-top: var(--space-8);
+  overflow-x: hidden;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Each row is its own clipping viewport — HARD edges, no fade mask (the hard
+   cut is what differentiates this from LogoMarquee's soft-edged strip). */
+.community-showcase__row {
+  overflow: hidden;
+}
+
+/* Two back-to-back copies of the set; translateX(-50%) advances exactly one.
+   will-change keeps the transform on its own layer (no per-frame layout). */
+.community-showcase__track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: wall-drift var(--wall-duration) linear infinite;
+  animation-delay: var(--wall-delay, 0s);
+}
+
+/* Middle row counter-flows: reverse plays the same keyframe backwards, so the
+   duplicated set still wraps seamlessly — it just travels the other way. */
+.community-showcase__row:nth-child(2) .community-showcase__track {
+  animation-direction: reverse;
+}
+
+@keyframes wall-drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ------------------------------------------------------------------- Tiles */
+
+/* Fixed 280×184 like the reference. Whitespace comes from a trailing margin
+   (not flex `gap`) so each copy's width includes its own trailing gap and the
+   -50% wrap lands copy 2's first tile exactly where copy 1's was. */
+.community-showcase__tile {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 280px;
+  height: 184px;
+  margin-inline-end: var(--space-4);
+
+  display: flex;
+  align-items: flex-end;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-subtle);
+  text-decoration: none;
+  transition: background 300ms var(--ease-standard),
+    border-color 300ms var(--ease-standard);
+}
+
+/* Caption pinned bottom-left, inside the tile. */
+.community-showcase__caption {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-muted);
+  transition: color 300ms var(--ease-standard);
+}
+
+/* -------------------------------------------------------------- Interaction */
+
+/* Hovering / keyboard-focusing a ROW pauses only that row... */
+.community-showcase__row:hover .community-showcase__track,
+.community-showcase__row:focus-within .community-showcase__track {
+  animation-play-state: paused;
+}
+
+/* ...and the tile under the cursor / focus lifts out of the surface. */
+.community-showcase__tile:hover,
+.community-showcase__tile:focus-visible {
+  background: var(--surface-raised);
+  border-color: var(--border-default);
+}
+.community-showcase__tile:hover .community-showcase__caption,
+.community-showcase__tile:focus-visible .community-showcase__caption {
+  color: var(--text-secondary);
+}
+
+.community-showcase__tile:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* The 'Explore the community' link sits at the start, below the wall. */
+.community-showcase .text-link {
+  align-self: flex-start;
+  margin-top: var(--space-6);
+}
+
+/* --------------------------------------------- Reduced-motion static grid */
+
+/* Render-branch fallback (see the component): a contained 4-column grid of
+   eight tiles, matching the section's previous in-column presentation. Tiles
+   reflow to the column width while keeping the 280:184 aspect. */
 .community-showcase__grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -10,32 +128,12 @@
   margin-top: var(--space-8);
 }
 
-.community-showcase__tile {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+.community-showcase__grid .community-showcase__tile {
+  width: auto;
+  height: auto;
+  aspect-ratio: 280 / 184;
+  margin-inline-end: 0;
 }
-
-.community-showcase__thumb {
-  aspect-ratio: 4 / 3;
-  background: var(--surface-overlay);
-  border-radius: var(--radius-md);
-}
-
-.community-showcase__caption {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-/* The 'Explore the community' link sits at the start, below the grid. */
-.community-showcase .text-link {
-  align-self: flex-start;
-  margin-top: var(--space-6);
-}
-
-/* ---------------------------------------------------------------- Responsive */
 
 @media (max-width: 1024px) {
   .community-showcase__grid {
