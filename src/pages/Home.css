@@ -44,6 +44,17 @@
   margin-top: 160px;
 }
 
+/* Standard section separation before the case studies. */
+.home .case-studies {
+  margin-top: 160px;
+}
+
+/* Tighter margin: the experts strip is a coda to the case studies, not a full
+   section — it should read as the same beat, one breath below. */
+.home .experts-strip {
+  margin-top: var(--space-16);
+}
+
 /* Same generous separation before the audience rails. */
 .home .audience-rails {
   margin-top: 160px;

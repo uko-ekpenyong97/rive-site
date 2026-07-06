@@ -1,0 +1,176 @@
+.case-studies {
+  /* Motion tuning knobs (measured from stripe.com's accordion). */
+  --case-panel-duration: 0.5s;
+  --case-panel-ease: cubic-bezier(0.65, 0, 0.35, 1);
+
+  display: flex;
+  flex-direction: column;
+}
+
+.case-studies__list {
+  margin-top: var(--space-8);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ------------------------------------------------------------------ Row */
+
+/* Rows share hairlines: every row a top border, the last one also a bottom. */
+.case-study {
+  border-top: 1px solid var(--border-subtle);
+}
+.case-study[data-last] {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* The whole row header is the disclosure button. */
+.case-study__header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Wordmark: rendered ~18px tall, currentColor, secondary until the row lifts. */
+.case-study__logo {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  height: 18px;
+  color: var(--text-secondary);
+  transition: color 300ms var(--ease-standard);
+}
+.case-study__svg {
+  display: block;
+  height: 100%;
+  width: auto;
+  /* Per-brand optical cap-height correction, like the marquee. */
+  transform: scale(var(--logo-scale, 1));
+  transform-origin: left center;
+}
+
+/* Claim headline — self-sufficient message, always legible collapsed. */
+.case-study__claim {
+  flex: 1 1 auto;
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+/* '+' affordance: rotates 45deg to read as '×' when the row is expanded. */
+.case-study__toggle {
+  flex: 0 0 auto;
+  font-family: var(--font-body);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--text-secondary);
+  transition: transform 300ms var(--ease-standard),
+    color 300ms var(--ease-standard);
+}
+.case-study__header[aria-expanded="true"] .case-study__toggle {
+  transform: rotate(45deg);
+}
+
+/* Row hover: wordmark lifts to primary; the '+' warms to accent. */
+.case-study__header:hover .case-study__logo {
+  color: var(--text-primary);
+}
+.case-study__header:hover .case-study__toggle {
+  color: var(--text-accent);
+}
+
+.case-study__header:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------------------------------------------------------------- Panel */
+
+/* Clipper: animates max-height. visibility flips to hidden only AFTER the
+   collapse finishes (delayed) so content stays visible through the animation
+   but is untabbable/removed from the a11y tree once closed. */
+.case-study__panel {
+  overflow: hidden;
+  max-height: 0;
+  visibility: hidden;
+  transition: max-height var(--case-panel-duration) var(--case-panel-ease),
+    visibility 0s linear var(--case-panel-duration);
+}
+.case-study__panel[data-expanded="true"] {
+  visibility: visible;
+  transition: max-height var(--case-panel-duration) var(--case-panel-ease),
+    visibility 0s linear 0s;
+}
+
+/* All spacing lives on the inner element (the clipper must stay padding-free
+   so it truly collapses to 0). Its measured height is the animation target. */
+.case-study__panel-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding-bottom: var(--space-8);
+}
+
+/* Future Rive-demo slot — not a photo. */
+.case-study__demo {
+  width: 100%;
+  height: 380px;
+}
+
+.case-study__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+.case-study__stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.case-study__stat-value {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--font-size-stat);
+  line-height: 1;
+  color: var(--text-primary);
+}
+.case-study__stat-label {
+  max-width: 30ch;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body-sm);
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------------ Responsive */
+
+@media (max-width: 640px) {
+  .case-study__demo {
+    height: 260px;
+  }
+  .case-study__header {
+    gap: var(--space-4);
+  }
+}
+
+/* ---------------------------------------------------------- Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .case-study__panel,
+  .case-study__panel[data-expanded="true"],
+  .case-study__toggle {
+    transition: none;
+  }
+}

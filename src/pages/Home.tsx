@@ -5,6 +5,8 @@ import LogoMarquee from "../components/LogoMarquee";
 import WorkflowStack from "../components/WorkflowStack";
 import UseCaseBento from "../components/UseCaseBento";
 import StatsBand from "../components/StatsBand";
+import CaseStudies from "../components/CaseStudies";
+import ExpertsStrip from "../components/ExpertsStrip";
 import AudienceRails from "../components/AudienceRails";
 import DeveloperZone from "../components/DeveloperZone";
 import CommunityShowcase from "../components/CommunityShowcase";
@@ -60,6 +62,10 @@ function Home() {
         <UseCaseBento />
 
         <StatsBand />
+
+        <CaseStudies />
+
+        <ExpertsStrip />
 
         <AudienceRails />
 
