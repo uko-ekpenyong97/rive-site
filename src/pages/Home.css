@@ -1,3 +1,58 @@
+/* ------------------------------------------------ Hero entrance choreography
+
+   Staggered load-in in reading order (Linear's canonical entrance): each hero
+   element rises opacity 0→1 + translateY, ease-out-expo (fast arrival, long
+   soft settle), ~80ms apart, runs ONCE on load. Hero-only — nothing below the
+   hero animates on load. Pure CSS so content is never hostage to a script.
+
+   Tuning knobs (calibrated by feel, then baked):
+   --hero-enter-dur      duration of one element's rise
+   --hero-enter-stagger  gap between successive elements (reading order)
+   --hero-enter-ease     ease-out-expo family — fast arrival, long soft settle
+   --hero-enter-y        translate distance the element rises from
+   Per-element order is set via --enter-index (0 Nav … 6 DemoSlot). */
+.home {
+  --hero-enter-dur: 600ms;
+  --hero-enter-stagger: 80ms;
+  --hero-enter-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --hero-enter-y: 16px;
+}
+
+@keyframes hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--hero-enter-y));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Nav is chrome, not content: the subtlest entrance — opacity only, no rise. */
+@keyframes hero-enter-nav {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The DemoSlot is the biggest element: it settles last and most gently, adding
+   a subtle scale (0.98→1) alongside the rise. Paired with a longer duration at
+   the call site so its overshoot lands softest. */
+@keyframes hero-enter-demo {
+  from {
+    opacity: 0;
+    transform: translateY(var(--hero-enter-y)) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .home {
   /* Transparent so the fixed DotField shows through empty space; the page
      canvas color now lives on <body>. z-index:1 lifts content above the
@@ -136,6 +191,69 @@
 .hero__demo {
   flex: 0 0 620px;
   align-self: stretch;
+}
+
+/* --------------------------------------------------- Hero entrance (on load)
+
+   Reading-order cascade. Each rule sets its --enter-index; the shared shorthand
+   turns that into a stagger delay. animation-fill-mode:both holds the from-state
+   before the delay elapses (no flash) and the to-state after (no snap back).
+   Transforms/opacity only → zero layout shift (no CLS). Scoped strictly to the
+   hero + its Nav; LogoMarquee and everything below get NO load animation. */
+
+/* 0 — Nav (chrome): opacity only, no rise, no delay. Lives outside .hero. */
+.home .nav {
+  --enter-index: 0;
+  animation: hero-enter-nav var(--hero-enter-dur) var(--hero-enter-ease)
+    calc(var(--enter-index) * var(--hero-enter-stagger)) both;
+}
+
+/* 1–5 — copy, in reading order. */
+.hero__eyebrow {
+  --enter-index: 1;
+}
+.hero__title {
+  --enter-index: 2;
+}
+.hero__subhead {
+  --enter-index: 3;
+}
+.hero__range {
+  --enter-index: 4;
+}
+.hero__ctas {
+  --enter-index: 5;
+}
+.hero__eyebrow,
+.hero__title,
+.hero__subhead,
+.hero__range,
+.hero__ctas {
+  animation: hero-enter var(--hero-enter-dur) var(--hero-enter-ease)
+    calc(var(--enter-index) * var(--hero-enter-stagger)) both;
+}
+
+/* 6 — DemoSlot: last, longest (1.4×), gentlest (scale variant). */
+.hero__demo {
+  --enter-index: 6;
+  animation: hero-enter-demo calc(var(--hero-enter-dur) * 1.4)
+    var(--hero-enter-ease)
+    calc(var(--enter-index) * var(--hero-enter-stagger)) both;
+}
+
+/* Reduced motion: no entrance. Because each animation carries its from-state,
+   removing the animation entirely leaves every element at its natural final
+   state — fully visible, untransformed — with no opacity-0 flash. */
+@media (prefers-reduced-motion: reduce) {
+  .home .nav,
+  .hero__eyebrow,
+  .hero__title,
+  .hero__subhead,
+  .hero__range,
+  .hero__ctas,
+  .hero__demo {
+    animation: none;
+  }
 }
 
 /* ---------------------------------------------------- Responsive: stacked */
