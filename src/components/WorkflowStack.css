@@ -2,21 +2,39 @@
   /* Tunable knobs for the sticky stack mechanic. */
   --stack-stagger: var(--space-6);
   --stack-travel: 240px;
+  /* Feel dial: card 5's approach IS the beat-4 scrub zone (progress 0→100).
+   * Deliberately longer than --stack-travel so the scrub feels substantial. */
+  --stack-travel-bind: 720px;
 
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
 }
 
-/* --------------------------------------------------------------- Sticky stack */
+/* --------------------------------------------------------------- Two columns */
 
 .workflow-stack__cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+  gap: var(--space-8);
+  align-items: start;
+}
+
+/* ---------------------------------------------------------------- Card stack */
+
+.workflow-stack__cardcol {
   position: relative;
+  min-width: 0;
 }
 
 /* Later cards start lower in the flow so they scroll up into the pin. */
 .workflow-stack__card + .workflow-stack__card {
   margin-top: var(--stack-travel);
+}
+
+/* The last card's longer approach is the beat-4 progress scrub zone. */
+.workflow-stack__card:last-child {
+  margin-top: var(--stack-travel-bind);
 }
 
 .workflow-stack__card {
@@ -28,11 +46,10 @@
   position: sticky;
   top: calc(96px + var(--card-index) * var(--stack-stagger));
 
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-8);
-  align-items: center;
-  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 420px;
   padding: var(--space-8);
 
   background: var(--surface-default);
@@ -47,6 +64,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  max-width: 480px;
 }
 
 .workflow-stack__step {
@@ -79,10 +97,18 @@
   color: var(--text-secondary);
 }
 
-/* Identical media geometry on every card, so the artifact appears to persist. */
-.workflow-stack__demo {
-  width: 100%;
-  height: 380px;
+/* -------------------------------------------------------------- Sticky canvas */
+
+.workflow-stack__canvas-wrap {
+  height: 100%;
+  min-width: 0;
+}
+
+/* Pin aligned with the first card's pin offset; the canvas never unmounts. */
+.workflow-stack__canvas.loop-canvas {
+  position: sticky;
+  top: 96px;
+  max-height: calc(100vh - 128px);
 }
 
 /* ---------------------------------------------------- Responsive: single column */
@@ -91,14 +117,36 @@
   .workflow-stack {
     --stack-stagger: var(--space-4);
     --stack-travel: 160px;
+    --stack-travel-bind: 480px;
   }
 
   .workflow-stack__card {
-    grid-template-columns: 1fr;
     padding: var(--space-6);
   }
+}
 
-  .workflow-stack__demo {
-    height: 260px;
+@media (max-width: 900px) {
+  .workflow-stack__cards {
+    grid-template-columns: 1fr;
+  }
+
+  /* Canvas rides sticky above the cards; cards flow beneath it. */
+  .workflow-stack__canvas-wrap {
+    order: -1;
+    position: sticky;
+    top: var(--space-4);
+    z-index: 2;
+    height: auto;
+  }
+
+  .workflow-stack__canvas.loop-canvas {
+    position: static;
+    max-height: 60vh;
+    margin: 0 auto;
+  }
+
+  .workflow-stack__card {
+    top: calc(60vh + var(--space-8) + var(--card-index) * var(--stack-stagger));
+    min-height: 320px;
   }
 }
