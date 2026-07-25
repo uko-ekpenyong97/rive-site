@@ -10,6 +10,8 @@ A redesign of Rive's marketing site. It is also a **design system**: Figma is th
 
 ## Design tokens (read this first)
 
+Active build specs live in docs/specs/ — read the relevant spec before touching a section.
+
 The token system is two-tier and flows **Figma → code**. Never invent values.
 
 - **Primitives** — raw values: `--neutral-*`, `--amber-*`, `--expressive-*`, `--radius-*`, `--space-*`, `--font-size-*`, `--font-*`.
