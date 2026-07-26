@@ -1,0 +1,113 @@
+/* ───────────────────────────────────────────────────────────────────────────
+ * MODAL SHEET — the rising card. Dark-theme token mapping (spec §3):
+ *   surface  → --surface-default (#121212, spec's "surface-1")
+ *   top edge → --border-default  (#262626, spec's "surface-3")
+ *   close bg → --surface-raised  (#1D1D1D, spec's "surface-2")
+ * NOTE: spec asks for a 20px radius + 20px mobile padding; neither exists as a
+ * token, so we use the nearest tokens (--radius-lg 16px, --space-4 16px) —
+ * the token-discipline rule outranks the raw spec px. Add a token in Figma to
+ * hit exactly 20px.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+.modal-sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+
+  /* Aligns to the bento container grid, one step inside Stripe's 1184, with a
+     side gutter on narrower desktops. */
+  width: min(1120px, 100% - 2 * var(--space-6));
+  margin: var(--sliver-height) auto 0;
+
+  /* Bottom bleeds off-viewport — always taller than the visible area so the
+     sheet reads as a rising sheet, not a floating card. */
+  min-height: calc(100vh - var(--sliver-height) + var(--space-24));
+
+  background: var(--surface-default);
+  border: 1px solid var(--border-default);
+  /* Top corners only — the bottom runs off-screen. */
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+
+  padding: var(--space-16) var(--space-16) var(--space-24);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+/* Quiet circular close, pinned so it stays reachable on a 2,600px sheet. */
+.modal-sheet__close {
+  position: sticky;
+  top: var(--space-6);
+  align-self: flex-end;
+  z-index: 1;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    color var(--duration-base) var(--ease-standard),
+    background-color var(--duration-base) var(--ease-standard);
+}
+.modal-sheet__close:hover {
+  color: var(--accent-default);
+  background: var(--surface-overlay);
+}
+.modal-sheet__close:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.modal-sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-height: 0;
+}
+
+.modal-sheet__eyebrow {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-size: var(--font-size-eyebrow);
+  letter-spacing: 0.08em;
+  color: var(--text-accent);
+}
+
+.modal-sheet__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--text-heading);
+  font-size: clamp(var(--font-size-h2), 4vw, var(--font-size-h1));
+}
+
+/* Mobile drag handle — visual affordance only (swipe-dismiss is v2). */
+.modal-sheet__handle {
+  display: none;
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border-default);
+}
+
+@media (max-width: 640px) {
+  .modal-sheet {
+    width: 100%;
+    margin-top: 48px;
+    padding: var(--space-6) var(--space-4) var(--space-16);
+  }
+  .modal-sheet__handle {
+    display: block;
+  }
+}

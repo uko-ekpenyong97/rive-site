@@ -1,0 +1,69 @@
+.proof-reel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.proof-reel__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.proof-reel__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.proof-reel__source {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--font-size-eyebrow);
+  color: var(--text-secondary);
+}
+
+.proof-reel__stat {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--font-size-stat);
+  line-height: 1.1;
+  color: var(--text-accent);
+}
+
+.proof-reel__claim {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body-sm);
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+/* Pull quote — Game UI only (§4.4). */
+.proof-reel__quote {
+  margin: 0;
+  padding-left: var(--space-6);
+  border-left: 2px solid var(--accent-default);
+}
+
+.proof-reel__quote-text {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--font-size-h2);
+  line-height: 1.25;
+  color: var(--text-heading);
+}
+
+.proof-reel__quote-by {
+  font-family: var(--font-body);
+  font-size: var(--font-size-body-sm);
+  color: var(--text-secondary);
+}

@@ -1,0 +1,103 @@
+/* ───────────────────────────────────────────────────────────────────────────
+ * MODAL MOTION STORYBOARD  (values are DialKit dials — see dials.ts / §6)
+ *
+ *  ENTER
+ *     0ms   overlay mounts; scrim + sheet held hidden (data-state="opening")
+ *     ~2fr  data-state flips to "open" — transitions fire
+ *   0–250   scrim: opacity 0 → 1            (the fast attack)
+ *   0–200   sheet: opacity 0 → 1
+ *   0–800   sheet: translateY(6%) → 0       (the slow glide, easeOutQuint)
+ *
+ *  EXIT  (data-state="closing" — always faster than the entrance)
+ *   0–240   sheet: opacity → 0, translateY 0 → 4%   (the sheet leads)
+ *  60–300   scrim: opacity → 0                        (lags ~60ms behind)
+ *
+ *  REDUCED MOTION  (data-motion="reduced")
+ *   both scrim + sheet crossfade over 150ms; no travel; blur is jump-cut in.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--modal-z, 1000);
+
+  /* The overlay itself is the scroller — wheel anywhere scrolls the sheet
+     (Stripe mechanic). The sheet is taller than the viewport by design. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Fixed blurred veil. pointer-events:none so background clicks fall through to
+   the overlay (the scroller + dismiss target) and the veil never scrolls. */
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  /* Veil derives from the canvas token (#000000 on this dark-only site); only
+     the alpha is a dial. color-mix keeps the color token-tracked (no hardcoded
+     colors in components). */
+  background: color-mix(
+    in srgb,
+    var(--surface-canvas) calc(var(--scrim-opacity) * 100%),
+    transparent
+  );
+  backdrop-filter: blur(var(--scrim-blur));
+  -webkit-backdrop-filter: blur(var(--scrim-blur));
+  pointer-events: none;
+
+  opacity: 0;
+  transition: opacity var(--scrim-in-duration) ease-out;
+  will-change: opacity;
+}
+
+/* The rising card. Base = hidden initial frame + the slow entrance transition. */
+.modal-overlay .modal-sheet {
+  opacity: 0;
+  transform: translateY(var(--sheet-in-travel));
+  transition:
+    transform var(--sheet-in-duration) var(--sheet-in-ease),
+    opacity var(--sheet-opacity-in-duration) ease-out;
+  will-change: transform, opacity;
+}
+
+/* Resting / open. */
+.modal-overlay[data-state="open"] .modal-scrim {
+  opacity: 1;
+}
+.modal-overlay[data-state="open"] .modal-sheet {
+  opacity: 1;
+  transform: none;
+}
+
+/* Exit — faster, and the scrim lags the sheet by --scrim-out-delay. */
+.modal-overlay[data-state="closing"] .modal-scrim {
+  opacity: 0;
+  transition: opacity var(--scrim-out-duration) ease-out var(--scrim-out-delay);
+}
+.modal-overlay[data-state="closing"] .modal-sheet {
+  opacity: 0;
+  transform: translateY(var(--sheet-out-travel));
+  transition:
+    transform var(--sheet-out-duration) ease-in,
+    opacity var(--sheet-out-duration) ease-in;
+}
+
+/* Reduced motion: crossfade only, no travel. The blur is applied statically
+   (never transitioned) so it jump-cuts in rather than animating.
+   Driven solely by the JS-set data-motion attribute — ModalRoot derives it from
+   `reducedMotion ?? matchMedia('(prefers-reduced-motion: reduce)')`, so the OS
+   preference is honored AND an explicit override works in both directions. (A
+   standalone @media block would win on source order and defeat the override.)
+   The modal is JS-only, so there is no no-JS path that needs a CSS-only guard. */
+.modal-overlay[data-motion="reduced"] .modal-scrim,
+.modal-overlay[data-motion="reduced"] .modal-sheet {
+  transition-property: opacity;
+  transition-duration: var(--reduced-crossfade);
+  transition-timing-function: ease;
+  transition-delay: 0s;
+}
+.modal-overlay[data-motion="reduced"] .modal-sheet {
+  transform: none;
+}
+.modal-overlay[data-motion="reduced"][data-state="closing"] .modal-sheet {
+  transform: none;
+}

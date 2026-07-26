@@ -1,0 +1,51 @@
+/* The ghost is chrome, not content: accent-coloured so it reads as the site
+   speaking rather than as part of the artwork. */
+.ghost-cursor {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  color: var(--accent-default);
+  /* Never intercept the real cursor — the ghost is a picture of a pointer. */
+  pointer-events: none;
+  /* Grows out of the resting offset toward the target. */
+  transition:
+    opacity 200ms ease-out,
+    transform var(--ghost-travel-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  filter: drop-shadow(0 2px 6px var(--surface-canvas));
+}
+
+/* Resting/withdrawn: parked slightly down-right of the target and scaled down,
+   so the glide has somewhere to come from. */
+.ghost-cursor[data-phase="hidden"],
+.ghost-cursor[data-phase="retreating"] {
+  transform: translate(24px, 24px) scale(0.85);
+}
+
+.ghost-cursor[data-phase="travelling"],
+.ghost-cursor[data-phase="dwelling"] {
+  transform: translate(0, 0) scale(1);
+}
+
+/* A small press cue at the moment of contact — the file responds to hover, so
+   this is the only signal that the ghost "did" something. */
+.ghost-cursor[data-phase="dwelling"] {
+  transform: translate(0, 0) scale(0.92);
+  transition-duration: 140ms;
+}
+
+/* Reduced-motion replacement: no ghost at all, just the invitation in words. */
+.ghost-hint {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 2;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  color: var(--text-secondary);
+  pointer-events: none;
+}

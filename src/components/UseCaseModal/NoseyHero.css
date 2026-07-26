@@ -1,0 +1,55 @@
+/* Mobile-first: canvas above, rail stacked below. */
+.nosey-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--surface-overlay);
+}
+
+.nosey-hero[data-state="failed"] {
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+}
+
+.nosey-hero__placeholder {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* The artboard is square, so it is capped and centred rather than stretched to
+   the sheet's full width — a 1120px-tall character would swamp the content. */
+.nosey-hero__canvas-wrap {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.nosey-hero__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Desktop: canvas and rail side by side, rail vertically centred against it. */
+@media (min-width: 900px) {
+  .nosey-hero {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-12);
+  }
+  .nosey-hero__canvas-wrap {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+  .nosey-hero .state-rail {
+    flex: 1 1 auto;
+    /* Keeps a long rail from stretching the row taller than the canvas. */
+    max-height: 100%;
+    overflow-y: auto;
+  }
+}

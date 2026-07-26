@@ -1,0 +1,74 @@
+.modal-hero {
+  position: relative;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-md);
+}
+
+/* Placeholder and image kinds keep the old fixed-height slot; the riv kind sizes
+   itself from the artboard ratio. */
+.modal-hero[data-kind="pending"],
+.modal-hero[data-kind="image"] {
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  background: var(--surface-overlay);
+  overflow: hidden;
+}
+
+.modal-hero__media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modal-hero__placeholder {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* Caption and credit sit under the canvas rather than over it: the licence makes
+   the credit mandatory, and overlaying it on a live interactive surface would
+   both obscure the artwork and put a link in the ghost's path. */
+.modal-hero__caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+}
+
+.modal-hero__caption-text {
+  font-family: var(--font-body);
+  font-size: var(--font-size-body-sm);
+  color: var(--text-secondary);
+  max-width: 60ch;
+}
+
+.modal-hero__credit {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--duration-base) var(--ease-standard);
+}
+.modal-hero__credit:hover {
+  color: var(--text-accent);
+}
+.modal-hero__credit:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Mobile: the credit stays — it is a licence obligation, never a nicety. */
+@media (max-width: 640px) {
+  .modal-hero__caption {
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+}

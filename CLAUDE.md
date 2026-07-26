@@ -105,6 +105,15 @@ This project is on a Figma **Professional** plan, so live Code Connect in Dev Mo
 - IMPORTANT: Every animation must have intentional purpose connected to the message — no decorative motion. Respect `prefers-reduced-motion` in every animated component (static or final-state render, no autoplay).
 - Non-drawable motion (canvas effects, scroll mechanics, marquees) is documented via annotation cards in the Figma file — keep those annotations truthful when values change.
 
+### DialKit — the standard for tuning motion
+
+- IMPORTANT: **`dialkit` is this project's tuning tool.** Every spec that defines motion carries a dial table, and each row becomes a real DialKit control. Do not hand-roll slider panels.
+- Reference implementation: `src/components/UseCaseModal/useModalDials.ts` (spec §6 → `useDialKit`), with `<DialRoot />` mounted on `/showcase`.
+- Pattern: **the dial hook is the only file that imports `dialkit`.** Components consume plain resolved data (e.g. `ModalDials`) so no shipped component depends on the tuning layer.
+- IMPORTANT: `dialkit` pulls in `motion` (its required peer, ~75 kB gzipped). Keep it off visitor-facing chunks — the `/showcase` route is `lazy()`-loaded in `App.tsx` for exactly this reason. Verify after adding a dial surface: `npm run build`, then confirm the main chunk has no `dialkit` reference.
+- DialKit conventions: sliders are `[default, min, max, step]`; durations in an easing/transition control are **seconds** (Motion's convention) while our CSS dials are **ms** — convert at the boundary. A transition control can be switched to spring mode in the panel, so narrow on `type === 'easing'` and keep a fallback when driving CSS transitions.
+- `DialRoot` auto-hides in production builds; still never mount it on a site page.
+
 ---
 
 ## Commands

@@ -160,6 +160,20 @@ All of the above lives in `useCaseContent.ts` as typed data (`UseCaseContent { s
 | `sliver-height` | 40–160px | clamp(64, 8vh, 120) |
 | `ghost-idle-delay` | 2–12s | 6s |
 | `hover-preload-delay` | 0–600ms | 300ms |
+| `state-dwell` | 2000–8000ms | 3500ms |
+| `cycle-resume-delay` | 4000–20000ms | 8000ms |
+
+### As built (`useModalDials.ts`, `dialkit` v1.4.3)
+
+The table above is implemented with the real `dialkit` package; `<DialRoot />` is mounted on `/showcase`. Deviations, all deliberate:
+
+- **`sheet-in-duration` + `sheet-in-ease` are one control.** DialKit's transition control *is* the bezier editor this table asks for, and it bundles the duration with a live curve preview — better for a feel pass than two separate rows. It expresses duration in seconds; the hook converts to ms.
+- **`sheet-out-travel` (4%)** and **`sheet-opacity-in-duration` (200ms)** were implicit in §3; they are explicit dials now.
+- **`reduced-crossfade` (150ms)** and a **`reducedMotion` toggle** were added so the reduced-motion fallback is previewable without changing OS settings.
+- **`replay` action** re-triggers the entrance for repeat judging.
+- **`state-dwell` and `cycle-resume-delay`** were added with the Product UI hero (T1 → Nosey): the rail's auto-cycle cadence and how long a manual pick holds control.
+- Values persist to localStorage, so a tuning session survives reloads.
+- Travel is emitted in `vh`, not `%` — CSS `translateY(%)` resolves against the element's own height and the sheet is taller than the viewport, which would have made the dial lie.
 
 ---
 
@@ -181,10 +195,20 @@ All of the above lives in `useCaseContent.ts` as typed data (`UseCaseContent { s
 
 ## 9. Open taste decisions
 
-- **T1 — Product UI hero:** cursor-tracking character (Nosey-adjacent, portfolio signature) vs. pull-to-refresh (purest "UI you can touch"). Gut call in the browser, not in the doc.
+- ~~**T1 — Product UI hero**~~ — **resolved, see the Decision log.**
 - **T2 — Scrim blur strength:** 20px (Apple) reads glassy; 12–14px may sit better with the DotField's texture behind it. Dial it live.
 - **T3 — v2 FLIP morph:** cell → sheet morph would be spectacular but risks upstaging content. Decide after v1 feel is locked.
 - **T4 — Tier 1 promotion path:** if Spotify-cell interest demands it, does the campaign cell get a full modal with a Wrapped-style scrubbable demo? (Would need a from-scratch .riv — scope consciously.)
+
+---
+
+## Decision log
+
+- **T1 — Product UI hero → Nosey** (2026-07-25). The owner's own AI-agent character, demonstrating enum-driven agent states via a StateRail that is both live status and control. *Rationale:* same category as the Notion assistant already on Rive's own proof wall, and being first-party unlocks the proper data-binding integration path (§5) instead of the synthetic-pointer workaround a third-party file forces.
+  - As built: artboard `NotionAI 2` (1000×1000, capped to 480px), state machine `Test`, view model `NoseyViewModel`, enum property `agentStatus` with 9 lowercase values (`idle · thinking · searching · writing · greeting · error · completed · nerd · cool`). No legacy inputs or listeners — purely data-bound.
+  - Rail order is lifecycle-arc-first (`idle → thinking → searching → writing → completed → error → greeting → nerd → cool`); the auto-cycle walks only the four sustained states. The value list itself is read from the runtime, so it cannot drift from the file.
+  - **House rule verified:** zero Any State transitions, and every sustained loop exits on an `agentStatus != <value>` enum condition.
+  - **Known file behaviour:** `greeting`, `error`, and `completed` are one-shots that return to Idle on exit-time while the enum stays set, so Idle re-enters them. The .riv is left untouched; the rail returns the enum to `idle` once the shot has played.
 
 ---
 

@@ -1,0 +1,13 @@
+.modal-cta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* The escape valve reads quieter than the primary action by design. */
+.modal-cta__page {
+  align-self: center;
+}
