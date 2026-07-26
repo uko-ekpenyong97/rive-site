@@ -1,17 +1,21 @@
+/* Live canvas: no chrome. The artwork carries its own background shape, so a
+   surface box behind it would read as a second, competing panel. The box belongs
+   to the fallback state only — see [data-state="failed"] below. */
 .rive-hero {
   position: relative;
   width: 100%;
   border-radius: var(--radius-md);
-  background: var(--surface-overlay);
   overflow: hidden;
 }
 
-/* The failed state keeps the slot's shape so the sheet layout does not jump. */
+/* The failed state keeps the slot's shape so the sheet layout does not jump, and
+   is the only state that needs a surface to sit its label on. */
 .rive-hero[data-state="failed"] {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 50vh;
+  background: var(--surface-overlay);
 }
 
 .rive-hero__placeholder {

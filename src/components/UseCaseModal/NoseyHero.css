@@ -1,17 +1,21 @@
-/* Mobile-first: canvas above, rail stacked below. */
+/* Mobile-first: canvas above, rail stacked below.
+   Live canvas carries no surface of its own — the character's own background
+   shape is its body, and the rail's pills are already self-contained. The gap
+   still does the spacing work that the padding used to. */
 .nosey-hero {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  padding: var(--space-6);
   border-radius: var(--radius-md);
-  background: var(--surface-overlay);
 }
 
+/* Only the fallback needs a surface to sit its label on. */
 .nosey-hero[data-state="failed"] {
   align-items: center;
   justify-content: center;
   min-height: 40vh;
+  padding: var(--space-6);
+  background: var(--surface-overlay);
 }
 
 .nosey-hero__placeholder {

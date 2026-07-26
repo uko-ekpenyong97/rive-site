@@ -99,6 +99,13 @@ export type UseCaseHero =
       rail?: HeroStateRail;
       /** Caps a square/tall artboard so it does not dominate the sheet. */
       maxWidth?: number;
+      /**
+       * The file's own logic reads view-model properties, so the runtime must bind
+       * an instance (`autoBind`). Opt-in per hero, not a default: the runtime logs
+       * "Could not find a View Model linked to Artboard …" for files that only use
+       * legacy state-machine inputs.
+       */
+      autoBind?: boolean;
       /** Rendered if the canvas fails to load (§8: never a broken canvas). */
       fallbackLabel: string;
     }
@@ -349,38 +356,46 @@ export const USE_CASES: UseCaseContent[] = [
      *               Head.Track, Eyes.Blink, Head.Bob, Breathing, R.HighFive,
      *               L.HighFive, Face.React, Burst.
      *               (A second, non-default "State Machine 2" exists; unused.)
-     * ViewModels    NONE in this file — so there is no data-binding path here,
-     *               unlike Nosey. Interaction is listener-driven instead.
+     * ViewModel     AvatarViewModel — the file's legacy state-machine inputs were
+     *               converted to view-model properties in the editor, so
+     *               `inputs` is now empty. Same five names, same roles:
+     *                 Pointer.Tracking   boolean
+     *                 Head.Bob.Amount    number
+     *                 Full.Hitbox.Click  trigger
+     *                 L.Half.Click       trigger
+     *                 R.Half.Click       trigger
      *
-     * Inputs (legacy, all isPublic:false — we never write them):
-     *   Pointer.Tracking   bool    false
-     *   Head.Bob.Amount    number  0
-     *   Full.Hitbox.Click  trigger
-     *   L.Half.Click       trigger
-     *   R.Half.Click       trigger
-     *
-     * THE FILE IS SELF-DRIVING. All seven listeners target shapes inside the
-     * file and fire those inputs themselves, so the visitor's real cursor is the
-     * only thing needed — no synthetic events, no ghost, no input writes, and
-     * nothing here worth a dial:
-     *   Full.Hitbox enter → Pointer.Tracking=true, Head.Bob.Amount=0.5
+     * THE FILE IS SELF-DRIVING — the conversion did not change that. All seven
+     * listeners still target shapes inside the file and now write those view-model
+     * properties themselves (`viewModelChange` where they used to be
+     * trigger/bool/numberChange), so the visitor's real cursor remains the only
+     * thing needed: no synthetic events, no ghost, no property writes from our
+     * side, and nothing here worth a dial.
+     *   Full.Hitbox enter → Pointer.Tracking=true,  Head.Bob.Amount=0.5
      *   Full.Hitbox exit  → Pointer.Tracking=false, Head.Bob.Amount=1.0
      *   Eyes.Tracker + Joystick.Handle → alignTarget (Rive's built-in
-     *     pointer-follow: the eyes and head track the cursor)
+     *     pointer-follow: the eyes and head track the cursor) — survived intact,
+     *     along with the alignTarget on each click hitbox.
      *   L.Half / R.Half click → L.HighFive / R.HighFive
      *   Full.Hitbox click → Face.React + Burst
+     *
+     * IMPORTANT: because the file's own conditions now read view-model properties,
+     * this hero sets `autoBind: true` — the runtime defaults it to false, and with
+     * no bound instance the character would play its idle loops and never react.
+     * It is opt-in per hero rather than always-on: enabling it for a legacy-input
+     * file (Health Bar) makes the runtime log "Could not find a View Model linked
+     * to Artboard healthBar" on every open.
      *
      * Idle behaviour is ambient and unconditional from Entry — Eyes.Blink (20s),
      * Idle.Breathing (5s), Head.Bob (4s), Burst.Idle — so the character is alive
      * before anyone interacts. The caption carries the click invitation, since a
      * high-five is not otherwise discoverable.
      *
-     * HOUSE RULE — COMPLIANT. Zero transitions out of the Any State across all
-     * nine layers. Sustained states exit on explicit conditions (the
-     * Pointer.Tracking bool) and one-shots exit on exit-time. The rule's wording
-     * says "enum condition"; this file predates view models, so the equivalent
-     * here is its bool/trigger inputs — the substance (clean, condition-driven
-     * exits, nothing leaning on Any State) holds. The .riv was not modified.
+     * HOUSE RULE — COMPLIANT, and now in letter as well as spirit. Still zero
+     * transitions out of the Any State across all nine layers. Sustained states
+     * exit on `viewModelComparison` against Pointer.Tracking (explicit == true /
+     * == false), which is exactly the view-model property condition the rule
+     * prefers; one-shots exit on exit-time. The .riv was not modified by us.
      * ────────────────────────────────────────────────────────────────────── */
     hero: {
       type: "riv",
@@ -392,6 +407,9 @@ export const USE_CASES: UseCaseContent[] = [
       /* Square, and this is a lite modal — kept a step below Nosey's 480 so the
          hero supports the copy rather than dominating it. */
       maxWidth: 420,
+      /* The conversion to AvatarViewModel makes this mandatory — see the note in
+         the map block above. */
+      autoBind: true,
       caption:
         "He tracks your cursor and high-fives when you click — the kind of moment Rive puts on a marketing site.",
       credit: {

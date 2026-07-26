@@ -43,6 +43,12 @@ export function RiveHero({
     /* Autoplay is honest here: the hero is the interaction, and it is only ever
        mounted behind a deliberate click. Reduced motion is handled below. */
     autoplay: !reducedMotion,
+    /* Required for files whose own listeners write view-model properties: the
+       runtime defaults this to false, and with no bound instance those conditions
+       never evaluate — the character would play its idle loops and never react.
+       Opt-in per hero rather than always-on, because the runtime logs "Could not
+       find a View Model linked to Artboard …" for legacy-input files. */
+    autoBind: hero.autoBind ?? false,
     /* No explicit Layout: the runtime already defaults to contain/centre, and
        because the wrapper is locked to the artboard's own aspect ratio there is
        nothing to letterbox — artboard coordinates map 1:1 onto the element box,
