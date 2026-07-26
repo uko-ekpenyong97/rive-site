@@ -210,6 +210,12 @@ The table above is implemented with the real `dialkit` package; `<DialRoot />` i
   - **House rule verified:** zero Any State transitions, and every sustained loop exits on an `agentStatus != <value>` enum condition.
   - **Known file behaviour:** `greeting`, `error`, and `completed` are one-shots that return to Idle on exit-time while the enum stays set, so Idle re-enters them. The .riv is left untouched; the rail returns the enum to `idle` once the shot has played.
 
+- **Websites proof-visual → live first-party hero** (2026-07-26). Promoted under §4's "lightweight .riv if one exists" clause; the modal stays Tier 2 in structure (two proof lines, no quote, no CommunityStrip). The hero is "Uko", a cursor-tracking self-portrait — the argument being that cursor-reactive characters are what Rive actually looks like on a marketing site.
+  - As built: artboard `Avatar` (2083×2083, capped to 420px), state machine `State Machine 1`. The file has **no view models**, so this is the third integration mode: **listener-driven**. All seven listeners live inside the file and fire its own inputs, and two use `alignTarget` for pointer-follow — so the visitor's real cursor drives everything and we write nothing. No ghost, no synthetic events, no new dials.
+  - **House rule verified:** zero Any State transitions across all nine layers; sustained states exit on the `Pointer.Tracking` bool, one-shots on exit-time.
+  - **Architecture:** deliberately *not* generalized. This hero needed only canvas + width cap + fallback + pause-on-close, which is `RiveHero` minus its optional ghost — so `RiveHero` gained `maxWidth` (~4 lines) and no new component was written. Revisit a shared `CharacterHero` only when a fourth hero needs something neither existing component has.
+  - Also folded in: the ghost's static invitation is now gated on the machine actually running, so a hint can never promise an interaction a paused canvas cannot deliver.
+
 ---
 
 ## 10. Conductor prompt (safe to run now)

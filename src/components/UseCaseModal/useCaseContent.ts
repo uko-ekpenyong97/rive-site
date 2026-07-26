@@ -19,6 +19,7 @@
 
 import healthBarRivUrl from "../../assets/rive/health_bar_use_case.riv?url";
 import noseyRivUrl from "../../assets/rive/nosey.riv?url";
+import avatarRivUrl from "../../assets/rive/character_animation.riv?url";
 
 export type UseCaseTier = "full" | "lite";
 
@@ -335,7 +336,74 @@ export const USE_CASES: UseCaseContent[] = [
     eyebrow: "WEBSITES",
     name: "Websites",
     claim: "Sites that respond to every visitor",
-    hero: { type: "pending", label: "LIVE .RIV — WEB INTERACTION" },
+    /* ──────────────────────────────────────────────────────────────────────
+     * CONFIRMED MAP — Avatar / State Machine 1  (Tier 2 hero promotion)
+     * Read from the live file via the Rive MCP; the committed .riv is
+     * byte-identical to the export that was inspected.
+     *
+     * Artboards     Text 345x500 · Burst 500x500 · Avatar 2083x2083 ·
+     *               Me 3354x3243. `Me` is a composition surface — its state
+     *               machine holds a single 1.0s timeline and no interactivity.
+     *               `Avatar` is the hero, and the only interactive artboard.
+     * StateMachine  State Machine 1 (isDefault), 9 layers: Eyes.Track,
+     *               Head.Track, Eyes.Blink, Head.Bob, Breathing, R.HighFive,
+     *               L.HighFive, Face.React, Burst.
+     *               (A second, non-default "State Machine 2" exists; unused.)
+     * ViewModels    NONE in this file — so there is no data-binding path here,
+     *               unlike Nosey. Interaction is listener-driven instead.
+     *
+     * Inputs (legacy, all isPublic:false — we never write them):
+     *   Pointer.Tracking   bool    false
+     *   Head.Bob.Amount    number  0
+     *   Full.Hitbox.Click  trigger
+     *   L.Half.Click       trigger
+     *   R.Half.Click       trigger
+     *
+     * THE FILE IS SELF-DRIVING. All seven listeners target shapes inside the
+     * file and fire those inputs themselves, so the visitor's real cursor is the
+     * only thing needed — no synthetic events, no ghost, no input writes, and
+     * nothing here worth a dial:
+     *   Full.Hitbox enter → Pointer.Tracking=true, Head.Bob.Amount=0.5
+     *   Full.Hitbox exit  → Pointer.Tracking=false, Head.Bob.Amount=1.0
+     *   Eyes.Tracker + Joystick.Handle → alignTarget (Rive's built-in
+     *     pointer-follow: the eyes and head track the cursor)
+     *   L.Half / R.Half click → L.HighFive / R.HighFive
+     *   Full.Hitbox click → Face.React + Burst
+     *
+     * Idle behaviour is ambient and unconditional from Entry — Eyes.Blink (20s),
+     * Idle.Breathing (5s), Head.Bob (4s), Burst.Idle — so the character is alive
+     * before anyone interacts. The caption carries the click invitation, since a
+     * high-five is not otherwise discoverable.
+     *
+     * HOUSE RULE — COMPLIANT. Zero transitions out of the Any State across all
+     * nine layers. Sustained states exit on explicit conditions (the
+     * Pointer.Tracking bool) and one-shots exit on exit-time. The rule's wording
+     * says "enum condition"; this file predates view models, so the equivalent
+     * here is its bool/trigger inputs — the substance (clean, condition-driven
+     * exits, nothing leaning on Any State) holds. The .riv was not modified.
+     * ────────────────────────────────────────────────────────────────────── */
+    hero: {
+      type: "riv",
+      src: avatarRivUrl,
+      artboard: "Avatar",
+      stateMachine: "State Machine 1",
+      width: 2083,
+      height: 2083,
+      /* Square, and this is a lite modal — kept a step below Nosey's 480 so the
+         hero supports the copy rather than dominating it. */
+      maxWidth: 420,
+      caption:
+        "He tracks your cursor and high-fives when you click — the kind of moment Rive puts on a marketing site.",
+      credit: {
+        file: "Uko",
+        creator: "Uko Ekpenyong",
+        provenance: "first-party",
+        license: "Original work",
+        /* href omitted deliberately — the chip renders as plain text until a URL
+           is supplied, rather than becoming a dead link. */
+      },
+      fallbackLabel: "UKO — CURSOR-TRACKING CHARACTER",
+    },
     proof: [
       {
         source: "One file",

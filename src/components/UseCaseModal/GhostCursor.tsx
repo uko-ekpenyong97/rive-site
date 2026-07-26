@@ -41,6 +41,11 @@ export interface GhostCursorProps {
   ready: boolean;
   /** The modal is open; the ghost idles completely when false. */
   active: boolean;
+  /**
+   * The state machine is not advancing. Gates the static invitation: a hint must
+   * never promise an interaction a paused machine cannot deliver.
+   */
+  paused: boolean;
   reducedMotion: boolean;
 }
 
@@ -50,6 +55,7 @@ export function GhostCursor({
   idleDelay,
   ready,
   active,
+  paused,
   reducedMotion,
 }: GhostCursorProps) {
   const [phase, setPhase] = useState<Phase>("hidden");
@@ -161,6 +167,12 @@ export function GhostCursor({
   }, []);
 
   if (reducedMotion) {
+    /* The invitation is only honest while the machine can respond. Under reduced
+       motion RiveHero pauses the state machine, so "hover the character" would be
+       a promise nothing can keep — the hero's caption carries the description
+       instead. Gated on `paused` rather than on reducedMotion directly, so if the
+       pause rule ever changes the hint follows it automatically. */
+    if (paused) return null;
     return (
       <p className="ghost-hint" data-static="true">
         {target.hint}

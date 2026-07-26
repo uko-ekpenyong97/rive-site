@@ -51,12 +51,16 @@ export function RiveHero({
     onLoadError: () => setFailed(true),
   });
 
+  /* One source of truth for "the machine is not advancing" — the pause effect and
+     the ghost's invitation both read it, so a hint can never outlive playback. */
+  const paused = !active || reducedMotion;
+
   /* Idle correctness: no state machine advance for a modal nobody is looking at. */
   useEffect(() => {
     if (!rive) return;
-    if (active && !reducedMotion) rive.play();
-    else rive.pause();
-  }, [rive, active, reducedMotion]);
+    if (paused) rive.pause();
+    else rive.play();
+  }, [rive, paused]);
 
   if (failed) {
     return (
@@ -70,8 +74,13 @@ export function RiveHero({
     <div
       className="rive-hero"
       /* Locked to the artboard ratio so Fit.Contain letterboxes nothing and the
-         ghost's normalized coordinates land where the artboard says they do. */
-      style={{ aspectRatio: `${hero.width} / ${hero.height}` }}
+         ghost's normalized coordinates land where the artboard says they do.
+         maxWidth keeps a square/tall artboard from dominating the sheet. */
+      style={{
+        aspectRatio: `${hero.width} / ${hero.height}`,
+        maxWidth: hero.maxWidth ? `${hero.maxWidth}px` : undefined,
+        marginInline: hero.maxWidth ? "auto" : undefined,
+      }}
     >
       <div className="rive-hero__surface" ref={surfaceRef}>
         <RiveComponent className="rive-hero__canvas" />
@@ -84,6 +93,7 @@ export function RiveHero({
           idleDelay={ghostIdleDelay}
           ready={Boolean(rive)}
           active={active}
+          paused={paused}
           reducedMotion={reducedMotion}
         />
       )}
