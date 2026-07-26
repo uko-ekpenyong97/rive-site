@@ -20,6 +20,7 @@
 import healthBarRivUrl from "../../assets/rive/health_bar_use_case.riv?url";
 import noseyRivUrl from "../../assets/rive/nosey.riv?url";
 import avatarRivUrl from "../../assets/rive/character_animation.riv?url";
+import drivingRivUrl from "../../assets/rive/driving_ui_concept.riv?url";
 
 export type UseCaseTier = "full" | "lite";
 
@@ -106,6 +107,8 @@ export type UseCaseHero =
        * legacy state-machine inputs.
        */
       autoBind?: boolean;
+      /** File size, so hover-preload can skip assets too heavy to speculate on. */
+      bytes?: number;
       /** Rendered if the canvas fails to load (§8: never a broken canvas). */
       fallbackLabel: string;
     }
@@ -189,6 +192,7 @@ export const USE_CASES: UseCaseContent[] = [
     hero: {
       type: "riv",
       src: noseyRivUrl,
+      bytes: 237_722,
       artboard: "NotionAI 2",
       stateMachine: "Test",
       width: 1000,
@@ -292,6 +296,7 @@ export const USE_CASES: UseCaseContent[] = [
     hero: {
       type: "riv",
       src: healthBarRivUrl,
+      bytes: 694_680,
       artboard: "healthBar",
       stateMachine: "healthBar_SM",
       width: 3000,
@@ -400,6 +405,7 @@ export const USE_CASES: UseCaseContent[] = [
     hero: {
       type: "riv",
       src: avatarRivUrl,
+      bytes: 386_457,
       artboard: "Avatar",
       stateMachine: "State Machine 1",
       width: 2083,
@@ -441,7 +447,76 @@ export const USE_CASES: UseCaseContent[] = [
     eyebrow: "AUTOMOTIVE",
     name: "Automotive",
     claim: "Dashboards at 120fps",
-    hero: { type: "pending", label: "LIVE .RIV — CLUSTER DEMO" },
+    /* ──────────────────────────────────────────────────────────────────────
+     * CONFIRMED MAP — Artboard / Startup-SM  (Tier 2 hero promotion)
+     * Artboards/state machines/inputs/view models were read with the Rive
+     * runtime itself (see .context/probe — the standard fallback when the MCP
+     * has no file open); listeners and the house-rule check came from the MCP.
+     *
+     * Artboard      "Artboard" 3534 × 1626 (2.173:1) — full-width, no cap.
+     *               12 further artboards are nested components: Start Button,
+     *               Eco, Sport, Autonomous (each Click + isHovered), plus
+     *               Power, Ambient, Terrain, Accelerator, Sensor,
+     *               Map Navigation, Weatther [sic], Battery.
+     * StateMachine  Startup-SM (isDefault), 10 layers: Speedometer, Navigation,
+     *               Icons, Accelerator, Speed Control, Speed Blend, Nav Control,
+     *               Nav Move, Gear State, Driving Mode Color.
+     * A HYBRID FILE: legacy state-machine inputs AND view models.
+     *   Inputs: dashboardReady (bool), isAccelerating (bool), Click (trigger)
+     *   ViewModels: DashboardVM (default) — drivingMode (enum), speedValue,
+     *     speedControl, arcValue, navArrowControl, naArrowDistance [sic]
+     *     (numbers), primaryColor/secondaryColor (colors), gear (string),
+     *     weatherTrigger (bool), propertyOfAcceleratingVM (viewModel);
+     *     AcceleratingVM — confirmed (trigger), pressBoolean, hover (bools).
+     *
+     * THIRD-PARTY POLICY: we never write its inputs or view-model properties.
+     * `autoBind: true` only binds the default DashboardVM instance so the file's
+     * own bindings (gear text, speed, colours) have somewhere to read from —
+     * reading its bindings is not driving it.
+     *
+     * Listeners (3, all on the main artboard):
+     *   HitBox            click     → fires Click, which starts the boot
+     *                                 sequence: Speedometer/Nav/Icons/
+     *                                 Accelerator "appears", and dashboardReady
+     *                                 is set as "Accelerator appears" exits.
+     *   AcceleratorHitBox down / up → isAccelerating + AcceleratingVM.pressBoolean
+     *                                 (press-and-hold to accelerate)
+     * No ghost cursor: four self-announcing controls with their own hover states
+     * make this a freely explorable panel, not one hidden affordance — and the
+     * primary interaction is a click, which the ghost cannot yet demonstrate
+     * (see the boundary note in GhostCursor.tsx).
+     *
+     * HOUSE RULE — MEASURED: 9 of 10 layers clean, 1 violation. Informational
+     * only; this is a community file and it was NOT modified.
+     *   ✓ Nine layers have zero transitions out of their Any State.
+     *   ✗ "Driving Mode Color" fans out from the Any State: three transitions
+     *     Any → Eco/Sport/Auto Color, each conditioned on a DashboardVM
+     *     `drivingMode` enum comparison, and the colour states carry no exits of
+     *     their own. The conditions are enum-based, but the source is Any State,
+     *     which is the pattern the rule exists to discourage.
+     * ────────────────────────────────────────────────────────────────────── */
+    hero: {
+      type: "riv",
+      src: drivingRivUrl,
+      artboard: "Artboard",
+      stateMachine: "Startup-SM",
+      width: 3534,
+      height: 1626,
+      /* Required: the file's own conditions read DashboardVM (see above). */
+      autoBind: true,
+      bytes: 4_101_251,
+      caption:
+        "Press start and the cluster boots — a concept dashboard running live, not a video of one.",
+      credit: {
+        file: "Futuristic Driving UI Concept",
+        creator: "Noushin.Pourmirza",
+        href: "https://rive.app/marketplace/27835-52594-futuristic-driving-ui-concept/",
+        creatorUrl: "https://rive.app/@Noushin.Pourmirza",
+        provenance: "community",
+        license: "CC BY",
+      },
+      fallbackLabel: "FUTURISTIC DRIVING UI — PRESS START",
+    },
     proof: [
       {
         source: "Embedded",
@@ -514,6 +589,15 @@ export function getUseCase(slug: string): UseCaseContent | undefined {
 /** Files already requested this session — a .riv is fetched at most once. */
 const preloaded = new Set<string>();
 
+/** Policy, not a feel parameter: too heavy to fetch on a guess. */
+export const PRELOAD_MAX_BYTES = 1_000_000;
+
+/** Whether a hover is worth speculatively fetching this hero's file for. */
+export function shouldPreloadHero(hero: UseCaseHero): boolean {
+  if (hero.type !== "riv") return false;
+  return (hero.bytes ?? 0) <= PRELOAD_MAX_BYTES;
+}
+
 /**
  * Warm the HTTP cache for a hero's .riv on hover intent, so the canvas has a
  * head start by the time the modal opens. Fire-and-forget: a failed preload is
@@ -521,6 +605,7 @@ const preloaded = new Set<string>();
  */
 export function preloadHero(hero: UseCaseHero): void {
   if (hero.type !== "riv" || preloaded.has(hero.src)) return;
+  if (!shouldPreloadHero(hero)) return;
   preloaded.add(hero.src);
   void fetch(hero.src, { credentials: "same-origin" }).catch(() => {
     /* Let the real load report the problem. */

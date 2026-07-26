@@ -19,6 +19,15 @@ import "./GhostCursor.css";
  *   it entirely (spec §3 reduced-motion rule).
  * - It only runs while the modal is actually open and the tab is visible — no
  *   work for invisible pixels.
+ *
+ * KNOWN BOUNDARY — hover only. This dispatches mouseover/mousemove/mouseout, so
+ * it can demonstrate `enter`-listener interactions (Health Bar) but NOT ones
+ * gated on a click, press or drag. The Automotive hero's launch control is a
+ * `click` listener, which is one reason that hero ships without a ghost. Adding
+ * click support means dispatching mousedown/mouseup/click in the dwell phase and
+ * giving the cursor a visible press cue — and, because a click demo needs to land
+ * on an exact hitbox, verified coordinates for that shape. Do not point a ghost
+ * at a guessed coordinate; read it from the file first.
  * ────────────────────────────────────────────────────────────────────────── */
 
 /* Choreography (ms). Deliberately slower than a real cursor: the ghost is a
