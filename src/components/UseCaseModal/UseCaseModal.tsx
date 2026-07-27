@@ -61,12 +61,17 @@ export function UseCaseModal({
           title={shown.claim}
           onClose={onClose}
         >
-          <ModalHero
-            hero={shown.hero}
-            active={open}
-            dials={resolved}
-            reducedMotion={reduce}
-          />
+          {/* A lite modal may be designed without a hero (Campaigns). Omitting
+              the element entirely means no empty container and no reserved
+              space — the sheet's gap layout simply closes up. */}
+          {shown.hero && (
+            <ModalHero
+              hero={shown.hero}
+              active={open}
+              dials={resolved}
+              reducedMotion={reduce}
+            />
+          )}
           <ProofReel proof={shown.proof} quote={shown.quote} />
           <RuntimeChips runtimes={shown.runtimes} label={shown.slug} />
           <ModalCTA

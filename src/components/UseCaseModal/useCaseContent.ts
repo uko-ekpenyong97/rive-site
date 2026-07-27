@@ -9,12 +9,15 @@
  * section or from copy already approved in this repo (UseCaseBento cells,
  * WorkflowStack, Home hero). Nothing is invented.
  *
+ * All five hero slots are live .riv files and Campaigns is deliberately heroless,
+ * so no entry uses `type: "pending"`. That variant remains in the union as the
+ * missing-asset fallback (§8) — a hero that should exist but failed to load —
+ * and is exercised by the smoke suite; it is not a content state.
+ *
  * PENDING (needs real assets/URLs before ship — deliberately not faked):
- * - Product UI hero .riv (taste decision T1). Modeled as `type: "pending"` so
- *   the slot renders a labeled placeholder, never a broken canvas (§8).
  * - CommunityStrip thumbnails: real marketplace files + creators.
- * - Tier 2 proof copy is capability-level, drawn from claims already made in
- *   WorkflowStack/Home; it still wants a marketing sign-off pass.
+ * - Tier 2 proof copy outside Campaigns is capability-level, drawn from claims
+ *   already made in WorkflowStack/Home; it still wants a marketing sign-off pass.
  * ────────────────────────────────────────────────────────────────────────── */
 
 import healthBarRivUrl from "../../assets/rive/health_bar_use_case.riv?url";
@@ -123,6 +126,11 @@ export interface ProofItem {
   claim: string;
   /** One number, when there is a real one to quote. */
   stat?: string;
+  /**
+   * Optional evidence link on the source label. Only for a real, public artifact
+   * — never invent a case-study URL to make a claim look sourced.
+   */
+  href?: string;
 }
 
 export interface UseCaseQuote {
@@ -138,7 +146,14 @@ export interface UseCaseContent {
   name: string;
   /** The modal's H2 — the claim, in Tomorrow display face. */
   claim: string;
-  hero: UseCaseHero;
+  /**
+   * Optional. A lite modal may be designed without a hero — Campaigns makes its
+   * case in copy and proof alone. Omitting it renders no slot and reserves no
+   * space, so the sheet reads as designed-without-a-hero rather than
+   * missing-one. Do NOT use `type: "pending"` for this; that variant is the
+   * missing-asset fallback for a hero that is supposed to exist (§8).
+   */
+  hero?: UseCaseHero;
   proof: ProofItem[];
   quote?: UseCaseQuote;
   runtimes: string[];
@@ -634,20 +649,45 @@ export const USE_CASES: UseCaseContent[] = [
     tier: "lite",
     eyebrow: "CAMPAIGNS",
     name: "Campaigns",
-    claim: "Brand moments like Spotify Wrapped",
-    hero: { type: "pending", label: "LIVE .RIV — CAMPAIGN MOMENT" },
+    claim: "Design ships the interaction. Code drives it with data.",
+    /* ──────────────────────────────────────────────────────────────────────
+     * DELIBERATELY HEROLESS. This modal makes its case in copy and proof, so
+     * `hero` is omitted rather than set to `type: "pending"` — there is no
+     * missing asset to stand in for. An original "visit, wrapped" hero is a
+     * build phase of its own (spec T4), not a gap here.
+     *
+     * SOURCING: the Strava Year in Sport figures come from public statements by
+     * Rive's co-founder. There is no Rive case-study page for it, so nothing
+     * here links Strava — attributing these numbers to a case study would be
+     * inventing a source. No Strava artwork is used either; it is their IP.
+     * Spotify and LinkedIn material stays reserved for the CaseStudies section.
+     *
+     * This is the first lite modal to carry a pull quote. That is intentional:
+     * the founder quote IS the anchor proof here, not decoration.
+     * ────────────────────────────────────────────────────────────────────── */
     proof: [
       {
-        source: "Spotify Wrapped",
-        claim: "Built in Rive.",
-        stat: "300M users engaged",
+        source: "Strava",
+        claim:
+          "Year in Sport is an interactive recap, personalized for millions of athletes across 14 languages.",
+        stat: "30.2K new subscriptions",
       },
       {
-        source: "Spotify Wrapped",
-        claim: "Shared across the world in a single campaign.",
-        stat: "630M shares",
+        source: "In-house, in 3 months",
+        claim: "Strava's team built it themselves, then ran it on every platform.",
+        stat: "110K trial starts",
+      },
+      {
+        source: "Hero Assistant",
+        claim:
+          "Year Wrapped — the same pattern at indie scale, animated with Rive.",
+        href: "https://rive.app/blog/year-wrapped-how-you-spent-your-time-this-year-and-what-it-says-about-you",
       },
     ],
+    quote: {
+      text: "Motion isn't just decoration here, it's core infrastructure.",
+      attribution: "Guido Rosso, Rive co-founder",
+    },
     runtimes: ["iOS", "Android", "Web"],
     /* No pageHref: there is no Campaigns use-case page, and the Spotify
        Wrapped depth lives in the CaseStudies section. This modal ends at

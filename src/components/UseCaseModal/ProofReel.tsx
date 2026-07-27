@@ -17,7 +17,20 @@ export function ProofReel({ proof, quote }: ProofReelProps) {
       <ul className="proof-reel__cards">
         {proof.map((item) => (
           <li key={`${item.source}-${item.claim}`} className="proof-reel__card">
-            <span className="proof-reel__source">{item.source}</span>
+            {/* The source becomes a link only when there is a real public
+                artifact to point at — evidence, not decoration. */}
+            {item.href ? (
+              <a
+                className="proof-reel__source proof-reel__source--link"
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {item.source} →
+              </a>
+            ) : (
+              <span className="proof-reel__source">{item.source}</span>
+            )}
             {item.stat && <span className="proof-reel__stat">{item.stat}</span>}
             <p className="proof-reel__claim">{item.claim}</p>
           </li>

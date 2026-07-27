@@ -62,8 +62,12 @@ const CELLS: {
   {
     slug: "campaigns",
     size: "wide",
-    title: "Brand moments like Spotify Wrapped",
-    description: "300M users engaged. 630M shares. Built in Rive.",
+    /* Retitled when the modal was anchored on Strava Year in Sport: the cell
+       used to lead with Spotify Wrapped and its numbers, which both mismatched
+       the modal behind it and kept Spotify material outside CaseStudies, where
+       that story is reserved. */
+    title: "Wrapped moments, made personal",
+    description: "Interactive year-in-review campaigns, personalized for millions.",
     gridColumn: "1 / -1",
     gridRow: 3,
   },
@@ -86,9 +90,12 @@ export function UseCaseBento({ dials, reducedMotion }: UseCaseBentoProps = {}) {
   const preloadDelay = resolveDials(dials).hoverPreloadDelay;
 
   const armPreload = (useCase: UseCaseContent) => {
+    /* Nothing to warm for a heroless modal. */
+    if (!useCase.hero) return;
+    const { hero } = useCase;
     window.clearTimeout(preloadTimer.current);
     preloadTimer.current = window.setTimeout(
-      () => preloadHero(useCase.hero),
+      () => preloadHero(hero),
       preloadDelay,
     );
   };

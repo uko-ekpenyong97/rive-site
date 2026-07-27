@@ -31,6 +31,19 @@
   color: var(--text-secondary);
 }
 
+/* Linked source: same quiet label, plus the affordance. */
+.proof-reel__source--link {
+  text-decoration: none;
+  transition: color var(--duration-base) var(--ease-standard);
+}
+.proof-reel__source--link:hover {
+  color: var(--text-accent);
+}
+.proof-reel__source--link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .proof-reel__stat {
   font-family: var(--font-display);
   font-weight: 700;
