@@ -105,6 +105,18 @@ This project is on a Figma **Professional** plan, so live Code Connect in Dev Mo
 - IMPORTANT: Every animation must have intentional purpose connected to the message — no decorative motion. Respect `prefers-reduced-motion` in every animated component (static or final-state render, no autoplay).
 - Non-drawable motion (canvas effects, scroll mechanics, marquees) is documented via annotation cards in the Figma file — keep those annotations truthful when values change.
 
+### Modal motion — the house choreography
+
+These are the tuned, as-built values for the UseCaseModal system. Full component
+inventory and token mapping: `docs/specs/figma-handoff-modal-components.md`.
+
+- IMPORTANT: **Two-speed or it isn't ours.** The scrim snaps in (250ms ease-out) while the sheet glides (800ms `cubic-bezier(0.22, 1, 0.36, 1)`, translateY 6vh → 0, opacity resolving in the first 200ms). Matching those durations flattens the whole effect — the contrast *is* the feel.
+- IMPORTANT: **Exits are always faster than entrances**, and the leaving element leads. Sheet out is 240ms ease-in (translateY → 4vh); the scrim follows 60ms behind it. Never let an exit match its entrance.
+- Travel is expressed in **`vh`, never `%`** — `translateY(%)` resolves against the element's own height, and a sheet taller than the viewport makes a percentage dial lie about what it does.
+- IMPORTANT: `prefers-reduced-motion` gets a **crossfade, not a slide**: 150ms opacity on both scrim and sheet, no travel, and the backdrop blur jump-cuts rather than animating. Drive it from a JS-set `data-motion` attribute rather than a standalone `@media` block, so an explicit override still works in both directions.
+- IMPORTANT: **A hint must never promise an interaction a paused machine cannot deliver.** Static invitations ("hover the character…") are gated on the state machine actually running, so a paused or reduced-motion canvas shows no invitation at all — the caption carries the description instead.
+- Canvas idle correctness: pause the state machine whenever a modal is closed, and remember that retained content outlives the close animation, so "closed" must be an explicit input to the canvas, not an unmount assumption.
+
 ### DialKit — the standard for tuning motion
 
 - IMPORTANT: **`dialkit` is this project's tuning tool.** Every spec that defines motion carries a dial table, and each row becomes a real DialKit control. Do not hand-roll slider panels.
