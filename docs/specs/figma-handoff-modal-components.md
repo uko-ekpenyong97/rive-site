@@ -257,6 +257,109 @@ are the baked defaults after tuning.
 
 ---
 
+## 7. CommunityStrip
+
+Credited marketplace files. **Tier 1 modals only** — a lite modal carrying a strip
+would stop being lite. Sits between ProofCard and the runtime chips in the sheet.
+
+Item count is **4–6** (shipping: 4 on Game UI, 5 on Product UI), so build the grid
+to reflow rather than assuming a fixed column count.
+
+### Anatomy
+`section` → group heading + `ul` → per item: `a` wrapping thumbnail, title,
+creator, and a visually-hidden credit line.
+
+| Property | Token / value |
+|---|---|
+| Section gap (heading → grid) | `--space-4` (16) |
+| Grid | `repeat(auto-fit, minmax(160px, 1fr))`, gap `--space-4` |
+| Item internal gap | `--space-2` (8) |
+| Link radius | `--radius-md` (8) |
+
+### Group heading
+Literal copy: **"Built by the community"**.
+
+| Font | Size | Weight | Colour | Notes |
+|---|---|---|---|---|
+| `--font-display` | `--font-size-eyebrow` | 500 | `--text-secondary` | uppercase, `letter-spacing: .08em` |
+
+Quieter than the sheet's own eyebrow (which is `--text-accent`) — this labels a
+subordinate block, it does not compete with the modal's claim.
+
+### Thumbnail
+| Property | Token / value |
+|---|---|
+| Width | 100% of the grid cell |
+| Ratio | **`aspect-ratio: 16 / 9`**, `object-fit: cover` |
+| Radius | `--radius-md` (8) |
+| Border | 1px `--border-subtle` → `--border-default` on hover |
+| Placeholder fill | `--surface-raised` (shows before the image decodes) |
+
+**The locked ratio is load-bearing, not cosmetic:** without it a slow image
+collapses the row and then shoves it open again as each one lands. Reproduce it in
+Figma as a fixed-ratio image frame, not a hugging one.
+
+In code the images are committed locally at **640px wide** (downscaled from
+1920×1080 sources) and are `loading="lazy"` + `decoding="async"`. For Figma, use
+any 16:9 placeholder fill — the real files come from the marketplace pages.
+
+### Type
+| Element | Font | Size | Colour | Notes |
+|---|---|---|---|---|
+| Title | `--font-body` | `--font-size-body-sm` | `--text-primary` | line-height 1.3 |
+| Creator | `--font-mono` | `--font-size-caption` | `--text-secondary` | rendered as `by {creator}` |
+
+### States — build three
+
+| State | Thumbnail border | Creator | Title |
+|---|---|---|---|
+| **Default** | 1px `--border-subtle` | `--text-secondary` | `--text-primary` |
+| **Hover** | 1px `--border-default` | `--accent-default` | unchanged |
+| **Focus** | unchanged | unchanged | + shared focus ring on the link: `2px solid var(--focus-ring)`, `outline-offset: 2px` |
+
+Hover moves the *creator* to accent, not the title — the credit is the affordance
+being offered, and the title is already the brightest thing in the cell.
+Transitions are `--duration-base`/`--ease-standard` on border-colour and colour.
+
+Links carry `target="_blank"`: a marketplace exit is conversion-adjacent, and the
+modal should survive it.
+
+### Visually-hidden credit — part of the anatomy, not an implementation detail
+
+Each link ends with a hidden span carrying the **full contributor line and the
+licence**, appended to the accessible name:
+
+```
+{title} by {creator} — {full credits, when multi-author} — {licence}, on the Rive community
+```
+
+Verified computed name for the multi-author HUD/Scope item:
+
+> "Game HUD/Scope Demo by JcToon — Design by Jerry Liu (sloppyJ44), UI animation by
+> Pedro Alpera (pedroalpera), background animation by JC (JcToon) — CC BY, on the
+> Rive community"
+
+Three rules that must survive the Figma round-trip and any future refactor:
+
+1. **Never replace this with `aria-label`.** The visible title has to remain in the
+   accessible name (WCAG 2.5.3 Label in Name) — the same mistake was already made
+   and fixed once on BentoCell.
+2. **Thumbnail `alt` is empty.** The link text already names the file; a
+   descriptive alt would announce it twice.
+3. **Every item is CC BY**, so the credit is a licence obligation. The strip shows
+   the *primary* account; multi-author files put every contributor in the hidden
+   line. Never drop it to tidy the markup.
+
+Hidden-span recipe (shared with `.bento-cell__hint`): `position: absolute`,
+`width/height: 1px`, `margin: -1px`, `padding: 0`, `overflow: hidden`,
+`clip: rect(0, 0, 0, 0)`, `white-space: nowrap`, `border: 0`. Deliberately a
+component-local rule rather than a utility class, so each component stays
+self-contained. Nothing to draw in Figma — annotate it on the component instead.
+
+An empty item list renders **nothing at all** — no heading, no empty grid.
+
+---
+
 ## As-built deviations
 
 Follow this column, not the build spec. Each was a deliberate decision made while
@@ -285,7 +388,10 @@ building; the spec text was not always retrofitted.
 2. Build **CreditChip** and **ProofCard** first — smallest, and they prove the
    token bindings.
 3. **StateRail** next: one pill component with the four states, then the group.
-4. **ModalSheet** last: it composes the others and needs the scrim behind it.
-5. Update **BentoCell** with the `+` expand variant and the new Campaigns copy.
-6. Annotate the motion table on a canvas card — it is not drawable, and the house
-   rule requires non-drawable motion to be documented as an annotation.
+4. **CommunityStrip**: one item component with its three states, then the grid.
+5. **ModalSheet** last: it composes the others and needs the scrim behind it.
+6. Update **BentoCell** with the `+` expand variant and the new Campaigns copy.
+7. Annotate the motion table on a canvas card — it is not drawable, and the house
+   rule requires non-drawable motion to be documented as an annotation. Do the
+   same for the two visually-hidden credit patterns (§5 and §7), which have no
+   visual representation but must not be dropped in a rebuild.
