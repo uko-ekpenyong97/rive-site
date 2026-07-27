@@ -14,8 +14,12 @@
  * missing-asset fallback (§8) — a hero that should exist but failed to load —
  * and is exercised by the smoke suite; it is not a content state.
  *
- * PENDING (needs real assets/URLs before ship — deliberately not faked):
- * - CommunityStrip thumbnails: real marketplace files + creators.
+ * CommunityStrip data is harvested from the live pages by
+ * scripts/fetch-community.mjs — titles, creators, thumbnails and licences all
+ * come from the page each item credits, so they cannot drift by hand. Re-run it
+ * to refresh, and note it EXCLUDES anything that is not CC BY.
+ *
+ * PENDING (needs sign-off before ship — deliberately not faked):
  * - Tier 2 proof copy outside Campaigns is capability-level, drawn from claims
  *   already made in WorkflowStack/Home; it still wants a marketing sign-off pass.
  * ────────────────────────────────────────────────────────────────────────── */
@@ -25,6 +29,17 @@ import noseyRivUrl from "../../assets/rive/nosey.riv?url";
 import avatarRivUrl from "../../assets/rive/character_animation.riv?url";
 import drivingRivUrl from "../../assets/rive/driving_ui_concept.riv?url";
 import reticleRivUrl from "../../assets/rive/sci_fi_reticle.riv?url";
+
+/* Community thumbnails — harvested + downscaled by scripts/fetch-community.mjs. */
+import thumbGameHudscopeDemo from "../../assets/community/6511-12637-game-hudscope-demo.png";
+import thumbAbilityWheelInTheLegendOfZeldaTearsOfTheKingdomTotk from "../../assets/community/5432-10752-ability-wheel-in-the-legend-of-zelda-tears-of-the-kingdom-totk.png";
+import thumbSophiaIiiHud from "../../assets/community/5708-11153-sophia-iii-hud.png";
+import thumbCharacterSelectionMenu from "../../assets/community/27565-52075-character-selection-menu.png";
+import thumbPullToRefreshAnimationExample from "../../assets/community/2233-4412-pull-to-refresh-animation-example.png";
+import thumbInteractiveIconSet from "../../assets/community/25691-49048-interactive-icon-set.png";
+import thumbMoodInteraction from "../../assets/community/27639-52202-mood-interaction.png";
+import thumbCloudyWalk from "../../assets/community/24966-46592-cloudy-walk.png";
+import thumbSketchToIllustration from "../../assets/community/19349-43859-sketch-to-illustration.png";
 
 export type UseCaseTier = "full" | "lite";
 
@@ -120,6 +135,24 @@ export type UseCaseHero =
   /** v1 placeholder: the real community file has not been wired yet (§8). */
   | { type: "pending"; label: string };
 
+/**
+ * A marketplace file in the CommunityStrip. Every field is harvested from the
+ * live page by `scripts/fetch-community.mjs` — never hand-written, so a title or
+ * creator cannot drift from the page it credits. Re-run that script to refresh.
+ */
+export interface CommunityItem {
+  title: string;
+  /** The account that published the file — what the strip shows. */
+  creator: string;
+  href: string;
+  /** Locally committed, downscaled thumbnail (imported, so Vite fingerprints it). */
+  thumb: string;
+  /** Only CC BY files are included; the harvester excludes anything else. */
+  license: string;
+  /** Full contributor line, for files with more than one author. */
+  credits?: string;
+}
+
 export interface ProofItem {
   /** Brand or source of the claim. */
   source: string;
@@ -156,6 +189,11 @@ export interface UseCaseContent {
   hero?: UseCaseHero;
   proof: ProofItem[];
   quote?: UseCaseQuote;
+  /**
+   * Marketplace files (§4.5). Tier 1 only — the full modals earn the extra
+   * depth, and a lite modal that also shipped a strip would stop being lite.
+   */
+  community?: CommunityItem[];
   runtimes: string[];
   /**
    * The escape valve: the full use-case page, deliberately last (§4). Optional —
@@ -259,6 +297,45 @@ export const USE_CASES: UseCaseContent[] = [
         claim: "Migrated from Lottie to Rive.",
       },
     ],
+    community: [
+      {
+        title: "Pull-to-refresh Animation Example",
+        creator: "Dante",
+        href: "https://rive.app/marketplace/2233-4412-pull-to-refresh-animation-example/",
+        thumb: thumbPullToRefreshAnimationExample,
+        license: "CC BY",
+      },
+      {
+        title: "Interactive Icon Set",
+        creator: "gabermonti",
+        href: "https://rive.app/marketplace/25691-49048-interactive-icon-set/",
+        thumb: thumbInteractiveIconSet,
+        license: "CC BY",
+        credits:
+          "Design by Silvia Sguotti, motion and interaction by Gabriele Montinaro",
+      },
+      {
+        title: "Mood interaction",
+        creator: "ardraawork",
+        href: "https://rive.app/marketplace/27639-52202-mood-interaction/",
+        thumb: thumbMoodInteraction,
+        license: "CC BY",
+      },
+      {
+        title: "Cloudy Walk",
+        creator: "RyanRumbolt",
+        href: "https://rive.app/marketplace/24966-46592-cloudy-walk/",
+        thumb: thumbCloudyWalk,
+        license: "CC BY",
+      },
+      {
+        title: "Sketch to Illustration",
+        creator: "mr.imruu",
+        href: "https://rive.app/marketplace/19349-43859-sketch-to-illustration/",
+        thumb: thumbSketchToIllustration,
+        license: "CC BY",
+      },
+    ],
     runtimes: [
       "iOS",
       "Android",
@@ -353,6 +430,38 @@ export const USE_CASES: UseCaseContent[] = [
       text: "If you enjoy making games and don't hate yourself, use Rive.",
       attribution: "Joseph Riedel, CTO, Pocketwatch Games",
     },
+    community: [
+      {
+        title: "Game HUD/Scope Demo",
+        creator: "JcToon",
+        href: "https://rive.app/community/files/6511-12637-game-hudscope-demo/",
+        thumb: thumbGameHudscopeDemo,
+        license: "CC BY",
+        credits:
+          "Design by Jerry Liu (sloppyJ44), UI animation by Pedro Alpera (pedroalpera), background animation by JC (JcToon)",
+      },
+      {
+        title: "Ability Wheel in The Legend of Zelda: Tears of the Kingdom (TOTK)",
+        creator: "haru",
+        href: "https://rive.app/community/files/5432-10752-ability-wheel-in-the-legend-of-zelda-tears-of-the-kingdom-totk/",
+        thumb: thumbAbilityWheelInTheLegendOfZeldaTearsOfTheKingdomTotk,
+        license: "CC BY",
+      },
+      {
+        title: "Sophia III HUD",
+        creator: "sloppyJ44",
+        href: "https://rive.app/community/files/5708-11153-sophia-iii-hud/",
+        thumb: thumbSophiaIiiHud,
+        license: "CC BY",
+      },
+      {
+        title: "Character Selection Menu",
+        creator: "Bri_Dillmuth",
+        href: "https://rive.app/marketplace/27565-52075-character-selection-menu/",
+        thumb: thumbCharacterSelectionMenu,
+        license: "CC BY",
+      },
+    ],
     runtimes: ["Unity", "Unreal", "Defold", "Custom engines"],
     pageHref: "https://rive.app/game-ui",
   },

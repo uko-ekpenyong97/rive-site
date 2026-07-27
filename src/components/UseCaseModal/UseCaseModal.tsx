@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CommunityStrip } from "./CommunityStrip";
 import { ModalCTA } from "./ModalCTA";
 import { ModalHero } from "./ModalHero";
 import { ModalRoot } from "./ModalRoot";
@@ -73,6 +74,10 @@ export function UseCaseModal({
             />
           )}
           <ProofReel proof={shown.proof} quote={shown.quote} />
+          {/* Tier 1 only — sits between proof and runtimes per the §4 anatomy. */}
+          {shown.community && (
+            <CommunityStrip items={shown.community} label={shown.slug} />
+          )}
           <RuntimeChips runtimes={shown.runtimes} label={shown.slug} />
           <ModalCTA
             pageHref={shown.pageHref}

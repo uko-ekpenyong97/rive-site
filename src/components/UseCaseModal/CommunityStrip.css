@@ -1,0 +1,87 @@
+.community-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.community-strip__label {
+  margin: 0;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--font-size-eyebrow);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.community-strip__grid {
+  display: grid;
+  /* Auto-fit means a 4-item and a 5-item strip both fill the row cleanly without
+     the content model having to know the column count. */
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.community-strip__link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+}
+
+.community-strip__thumb {
+  display: block;
+  width: 100%;
+  /* The source thumbnails are 16:9; locking the ratio stops a slow image from
+     collapsing the row and then shoving it open again. */
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+  transition: border-color var(--duration-base) var(--ease-standard);
+}
+
+.community-strip__title {
+  font-family: var(--font-body);
+  font-size: var(--font-size-body-sm);
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.community-strip__creator {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  color: var(--text-secondary);
+  transition: color var(--duration-base) var(--ease-standard);
+}
+
+.community-strip__link:hover .community-strip__thumb {
+  border-color: var(--border-default);
+}
+.community-strip__link:hover .community-strip__creator {
+  color: var(--text-accent);
+}
+
+.community-strip__link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Visually hidden, still in the accessible name — carries the full contributor
+   credits and the licence. */
+.community-strip__hint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

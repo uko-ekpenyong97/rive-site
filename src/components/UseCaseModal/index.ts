@@ -7,6 +7,7 @@ export { StateRail, type StateRailProps } from "./StateRail";
 export { GhostCursor, type GhostCursorProps } from "./GhostCursor";
 export { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 export { ProofReel, type ProofReelProps } from "./ProofReel";
+export { CommunityStrip, type CommunityStripProps } from "./CommunityStrip";
 export { RuntimeChips, type RuntimeChipsProps } from "./RuntimeChips";
 export { ModalCTA, type ModalCTAProps } from "./ModalCTA";
 export { UseCaseModal, type UseCaseModalProps } from "./UseCaseModal";
@@ -25,6 +26,7 @@ export {
   type UseCaseContent,
   type UseCaseTier,
   type ProofItem,
+  type CommunityItem,
   type UseCaseHero,
   type HeroCredit,
   type GhostTarget,
