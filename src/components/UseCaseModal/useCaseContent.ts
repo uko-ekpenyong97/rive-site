@@ -21,6 +21,7 @@ import healthBarRivUrl from "../../assets/rive/health_bar_use_case.riv?url";
 import noseyRivUrl from "../../assets/rive/nosey.riv?url";
 import avatarRivUrl from "../../assets/rive/character_animation.riv?url";
 import drivingRivUrl from "../../assets/rive/driving_ui_concept.riv?url";
+import reticleRivUrl from "../../assets/rive/sci_fi_reticle.riv?url";
 
 export type UseCaseTier = "full" | "lite";
 
@@ -536,7 +537,79 @@ export const USE_CASES: UseCaseContent[] = [
     eyebrow: "FILM, TV & BROADCAST",
     name: "Film, TV & Broadcast",
     claim: "Live graphics that never miss",
-    hero: { type: "pending", label: "LIVE .RIV — BROADCAST GRAPHIC" },
+    /* ──────────────────────────────────────────────────────────────────────
+     * CONFIRMED MAP — Recticle / State Machine 1  (Tier 2 hero promotion)
+     * Read from the live file via the Rive MCP. Two marketplace-derived hints
+     * were wrong and are corrected here: the artboard is not "New Artboard",
+     * and this is not a legacy-input file.
+     *
+     * NOTE ON THE SPELLING: the artboard is genuinely named "Recticle" — the
+     * typo is the file's own internal name, not ours. Our asset filename uses
+     * the correct spelling (sci_fi_reticle.riv), so the two differ on purpose;
+     * the artboard string below must stay misspelled to match the file.
+     *
+     * Artboard      Recticle  500 × 500 (square — hence the maxWidth cap)
+     * StateMachine  State Machine 1 (isDefault), 2 layers: main, loop
+     * Legacy inputs NONE
+     * ViewModel     RecticleViewModel — offOn (boolean)
+     *
+     * Layers
+     *   main  mainIdle ⇄ main, gated on viewModelComparison against `offOn`
+     *         (== true engages, == false returns over a 300ms cubic)
+     *   loop  plays `loop` unconditionally from Entry — ambient idle, so the
+     *         reticle is alive before anyone interacts
+     *
+     * Listeners (2, both targeting the same `hit` shape):
+     *   alignTarget      → THE RETICLE TRACKS THE POINTER. This is the real
+     *                      draw, and it means any cursor movement already gives
+     *                      feedback — nothing about this hero is hidden.
+     *   viewModelChange  → toggles RecticleViewModel.offOn (the lock-on).
+     *   CAVEAT: the MCP reported `listenerTypes: []` for both, where other files
+     *   (e.g. the automotive dashboard) reported click/down/up explicitly. So the
+     *   toggle's exact gesture is not provable from the map; it was confirmed
+     *   behaviourally instead — a click engages and a second click releases.
+     *
+     * THIRD-PARTY POLICY: we never write its view-model property. `autoBind` is
+     * required all the same — the file's own transitions read `offOn`, so with no
+     * bound instance the toggle would silently never fire. Reading its bindings
+     * is not driving it.
+     *
+     * No ghost cursor: the reticle already follows the pointer, so the hero
+     * announces itself on any movement; the toggle is click-gated, which is
+     * outside GhostCursor's hover-only vocabulary; and a synthetic cursor would
+     * collide with a graphic whose whole subject is a cursor-tracking crosshair.
+     *
+     * CREDIT: drawsgood is intentionally credited on two heroes — this one and
+     * the Game UI health bar. Both are their marketplace files under CC BY.
+     *
+     * HOUSE RULE — MEASURED: fully compliant, in letter and spirit. Zero
+     * transitions out of the Any State in either layer, and the sustained states
+     * exit on a view-model property comparison. The .riv was not modified.
+     * ────────────────────────────────────────────────────────────────────── */
+    hero: {
+      type: "riv",
+      src: reticleRivUrl,
+      /* Misspelled on purpose — see the note above. */
+      artboard: "Recticle",
+      stateMachine: "State Machine 1",
+      width: 500,
+      height: 500,
+      maxWidth: 420,
+      /* Required: the file's own transitions read RecticleViewModel.offOn. */
+      autoBind: true,
+      bytes: 813_463,
+      caption:
+        "It follows your cursor — click to lock on. Screen graphics like this usually get rendered in post; here they run live.",
+      credit: {
+        file: "Sci-fi reticle",
+        creator: "drawsgood",
+        href: "https://rive.app/marketplace/7751-14934-sci-fi-reticle/",
+        creatorUrl: "https://rive.app/@drawsgood/",
+        provenance: "community",
+        license: "CC BY",
+      },
+      fallbackLabel: "SCI-FI RETICLE — CLICK TO LOCK ON",
+    },
     proof: [
       {
         source: "Live data",
