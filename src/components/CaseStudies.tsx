@@ -7,11 +7,14 @@ import {
   type SVGProps,
 } from "react";
 import SectionHeader from "./SectionHeader";
-import DemoSlot from "./DemoSlot";
 import Spotify from "../assets/logos/spotify.svg?react";
 import LinkedIn from "../assets/logos/linkedin.svg?react";
 import Duolingo from "../assets/logos/duolingo.svg?react";
 import Brilliant from "../assets/logos/brilliant.svg?react";
+import spotifyPoster from "../assets/case-studies/spotify-poster.avif";
+import linkedinPoster from "../assets/case-studies/linkedin-poster.avif";
+import duolingoPoster from "../assets/case-studies/duolingo-poster.avif";
+import brilliantPoster from "../assets/case-studies/brilliant-poster.avif";
 import "./CaseStudies.css";
 
 interface Stat {
@@ -26,7 +29,14 @@ interface Story {
   scale: number;
   claim: string;
   stats: Stat[];
-  slot: string;
+  poster: string;
+  /**
+   * Optional crop anchor for the poster. The slot is far wider than the 16:9
+   * source, so `cover` trims top and bottom — set this (e.g. "center 30%") when
+   * a poster's subject sits away from the middle. Left unset = center, which is
+   * the CSS default; fixing a bad crop is meant to be a data edit, not a patch.
+   */
+  objectPosition?: string;
   url: string;
 }
 
@@ -44,7 +54,7 @@ const STORIES: Story[] = [
       { value: "630M+", label: "shares" },
       { value: "#1", label: "biggest subscriber day in Spotify history" },
     ],
-    slot: "● WRAPPED 2025 — DEMO SLOT",
+    poster: spotifyPoster,
     url: "https://rive.app/blog/spotify-used-rive-for-spotify-wrapped-2025",
   },
   {
@@ -57,7 +67,7 @@ const STORIES: Story[] = [
       { value: "3", label: "languages" },
       { value: "1", label: "file, built entirely in Rive by BUCK" },
     ],
-    slot: "● YEAR IN REVIEW — DEMO SLOT",
+    poster: linkedinPoster,
     url: "https://rive.app/blog/linkedin-year-in-review-2025-built-with-rive",
   },
   {
@@ -70,7 +80,7 @@ const STORIES: Story[] = [
       { value: "<1MB", label: "full character file" },
       { value: "40+", label: "languages of lip sync at scale" },
     ],
-    slot: "● LILY, LIVE — DEMO SLOT",
+    poster: duolingoPoster,
     url: "https://rive.app/blog/duolingo-s-ai-powered-video-call-brings-lily-to-life",
   },
   {
@@ -83,7 +93,7 @@ const STORIES: Story[] = [
       { value: "1 file", label: "across iOS, Android & web" },
       { value: "Rive > Lottie", label: "in their engineering comparison" },
     ],
-    slot: "● STREAKS & PATHS — DEMO SLOT",
+    poster: brilliantPoster,
     url: "https://rive.app/blog/how-brilliant-org-motivates-learners-with-rive-animations",
   },
 ];
@@ -148,7 +158,20 @@ function StoryRow({ story, isOpen, isLast, onToggle }: StoryRowProps) {
         style={{ maxHeight: isOpen ? contentHeight : 0 }}
       >
         <div className="case-study__panel-inner" ref={contentRef}>
-          <DemoSlot className="case-study__demo" label={story.slot} />
+          {/* Empty alt: the row's own claim already names the company in visible
+              text, so a descriptive alt would announce the brand twice. */}
+          <img
+            className="case-study__poster"
+            src={story.poster}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            style={
+              story.objectPosition
+                ? { objectPosition: story.objectPosition }
+                : undefined
+            }
+          />
 
           <div className="case-study__stats">
             {story.stats.map((stat) => (

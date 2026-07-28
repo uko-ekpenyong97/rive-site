@@ -123,10 +123,24 @@
   padding-bottom: var(--space-8);
 }
 
-/* Future Rive-demo slot — not a photo. */
-.case-study__demo {
+/* Case study poster. Inherits the frame of the DemoSlot it replaced — same fixed
+   box, radius and border — so the panel's measured height is unchanged.
+   The fixed height is load-bearing: the panel animates max-height from a
+   ResizeObserver measurement, so an image that only gained its box once decoded
+   would measure short and then jump the row open. */
+.case-study__poster {
+  display: block;
   width: 100%;
   height: 380px;
+  /* The slot is far wider than the 16:9 sources, so this trims top and bottom.
+     A per-story `objectPosition` overrides the anchor where a subject sits off
+     centre. */
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  /* Shown until the image decodes, so the frame is never empty — and it is the
+     floor for browsers without AVIF support. */
+  background: var(--surface-raised);
 }
 
 .case-study__stats {
@@ -157,7 +171,7 @@
 /* ------------------------------------------------------------ Responsive */
 
 @media (max-width: 640px) {
-  .case-study__demo {
+  .case-study__poster {
     height: 260px;
   }
   .case-study__header {
