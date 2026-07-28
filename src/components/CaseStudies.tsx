@@ -94,6 +94,10 @@ const STORIES: Story[] = [
       { value: "Rive > Lottie", label: "in their engineering comparison" },
     ],
     poster: brilliantPoster,
+    /* The mascot and its "You got it!" bubble sit in the bottom-left of the
+       source; a centred crop sliced through them. This anchors low enough to
+       show both without leaving dead background at the bottom edge. */
+    objectPosition: "center 85%",
     url: "https://rive.app/blog/how-brilliant-org-motivates-learners-with-rive-animations",
   },
 ];
