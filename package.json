@@ -11,7 +11,9 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "connect:parse": "figma connect parse",
-    "connect:publish": "figma connect publish"
+    "connect:publish": "figma connect publish",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@rive-app/react-webgl2": "^4.30.0",
@@ -27,10 +29,12 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "jsdom": "^29.1.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.6.3",
     "vite": "^6.0.3",
-    "vite-plugin-svgr": "^5.2.0"
+    "vite-plugin-svgr": "^5.2.0",
+    "vitest": "^4.1.10"
   }
 }

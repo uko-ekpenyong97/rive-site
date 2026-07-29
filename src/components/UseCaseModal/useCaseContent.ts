@@ -12,7 +12,11 @@
  * All five hero slots are live .riv files and Campaigns is deliberately heroless,
  * so no entry uses `type: "pending"`. That variant remains in the union as the
  * missing-asset fallback (§8) — a hero that should exist but failed to load —
- * and is exercised by the smoke suite; it is not a content state.
+ * and is exercised by src/__tests__/modalHeroes.test.tsx ("absent asset →
+ * labelled placeholder, no canvas", once per hero); it is not a content state.
+ * That this set stays empty is pinned in src/__tests__/modalContent.test.tsx.
+ * (Until 2026-07-28 this line said "the smoke suite" and pointed at nothing
+ * tracked: the suite was a gitignored script in .context/. It is committed now.)
  *
  * CommunityStrip data is harvested from the live pages by
  * scripts/fetch-community.mjs — titles, creators, thumbnails and licences all
