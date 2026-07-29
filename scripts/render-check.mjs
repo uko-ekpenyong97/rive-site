@@ -198,14 +198,29 @@ try {
   await evaluate(
     "document.querySelector('.stats-band')?.scrollIntoView({block:'center'})",
   );
-  // Longest ripple is 3 digits + suffix: 150ms delay + 150ms spring, plus slack.
-  await sleep(1200);
+  /* The count runs ~1200ms for the two big stats, then the last roll needs its
+     150ms. Waiting well past that is the point: this asserts the SETTLED state,
+     and a spring that never returns or a fill that strands a digit at opacity 0
+     would look exactly like a passing unit suite. */
+  await sleep(2500);
 
   const stats = await evaluate(`(() => {
     const chars = [...document.querySelectorAll('.stats-band__char')];
     return {
       slots: document.querySelectorAll('.stats-band__slot').length,
       chars: chars.length,
+      // Only the visible layer of each slot — leaving layers are aria-hidden.
+      values: [...document.querySelectorAll('.stats-band__digits')]
+        .map((d) => [...d.querySelectorAll('.stats-band__slot')]
+          .map((s) => {
+            const layers = s.querySelectorAll('.stats-band__char');
+            return layers[layers.length - 1]?.textContent ?? '';
+          }).join('')),
+      suffixes: [...document.querySelectorAll('.stats-band__slot--suffix')]
+        .map((s) => {
+          const layers = s.querySelectorAll('.stats-band__char');
+          return layers[layers.length - 1]?.textContent ?? '';
+        }),
       unsettled: chars
         .map((c, i) => {
           const s = getComputedStyle(c);
@@ -224,6 +239,19 @@ try {
   stats.chars > 0
     ? good(`StatsBand: ${stats.chars} character slots rendered`)
     : bad("StatsBand: no character slots found");
+
+  /* Off-by-one in a tick schedule is the classic failure here: the count runs,
+     it looks right, and it stops on 119. Assert the exact landings. */
+  const WANT = ["4", "90", "2", "120"];
+  const WANT_SUFFIX = ["×", "%", "×", "fps"];
+  JSON.stringify(stats.values) === JSON.stringify(WANT)
+    ? good(`StatsBand: counts landed exactly on ${WANT.join(", ")}`)
+    : bad(
+        `StatsBand: counts landed on [${stats.values.join(", ")}], wanted [${WANT.join(", ")}]`,
+      );
+  JSON.stringify(stats.suffixes) === JSON.stringify(WANT_SUFFIX)
+    ? good("StatsBand: suffixes intact")
+    : bad(`StatsBand: suffixes are [${stats.suffixes.join(", ")}]`);
 
   stats.unsettled.length === 0
     ? good("StatsBand: every digit settled (opacity 1, no blur)")

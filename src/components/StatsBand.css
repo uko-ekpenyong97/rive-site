@@ -26,6 +26,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The digit run reserves the TARGET's width up front and right-aligns into it,
+   so counting 0 → 120 grows leftward through 1, 2 then 3 digits without ever
+   shoving the suffix sideways. --digit-width is set per stat from the target. */
+.stats-band__digits {
+  display: inline-flex;
+  justify-content: flex-end;
+  min-width: calc(var(--digit-width, 1) * 0.6em);
+}
+
 /* One character cell. The fixed slot is what gives the row its tabular rhythm —
    `font-variant-numeric` above is belt-and-braces, not the mechanism. */
 .stats-band__slot {

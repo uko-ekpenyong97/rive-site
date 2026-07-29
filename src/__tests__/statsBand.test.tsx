@@ -9,13 +9,23 @@ import {
   SPRING_BOUNCE,
   SPRING_EASING,
   STAGGER_MS,
+  COUNT_STAGGER_MS,
+  BLUR_EASING,
   BLUR_PX,
+  MAX_LAYERS,
   OFFSET,
   CENTER_OFFSET,
+  EVERY_INTEGER_MAX,
+  FIRST_DWELL_MS,
+  LAST_DWELL_MS,
   frameFor,
+  springFrame,
+  blurFrame,
   delayFor,
   mirror,
   transformFor,
+  tickValues,
+  tickSchedule,
 } from "../components/statsBandMotion";
 
 /**
@@ -87,7 +97,118 @@ describe("digit-roll motion values (pinned — a softer 'cleanup' must fail here
 
   it("ripples leftmost-first, 50ms apart, with the suffix riding last", () => {
     // "120" + "fps" → four elements, the suffix at index 3.
-    expect([0, 1, 2, 3].map(delayFor)).toEqual([0, 50, 100, 150]);
+    expect([0, 1, 2, 3].map((i) => delayFor(i))).toEqual([0, 50, 100, 150]);
+  });
+
+  /* The ripple is a REVEAL concept. During counting it must be off: at 50ms a
+     3-digit stat gives its third slot a 100ms delay while the next tick commits
+     at 80ms, so that digit would animate a value that is already stale. */
+  it("switches the ripple off during counting", () => {
+    expect(COUNT_STAGGER_MS).toBe(0);
+    expect([0, 1, 2, 3].map((i) => delayFor(i, COUNT_STAGGER_MS))).toEqual([
+      0, 0, 0, 0,
+    ]);
+  });
+
+  /* The blur runs on its OWN easing across the full duration. Riding the spring,
+     it clamped at its floor at 47% of the roll and left 2 of 9 frames visibly
+     blurred — the owner reported "no blurs", correctly. Decoupled: 6 of 9. */
+  it("keeps the blur off the spring", () => {
+    expect(BLUR_EASING).toBe("linear");
+    expect(BLUR_EASING).not.toBe(SPRING_EASING);
+  });
+
+  it("splits a frame into a spring half and a blur half that lose nothing", () => {
+    for (const phase of ["settled", "incoming", "outgoing"] as const) {
+      expect({ ...springFrame(phase), ...blurFrame(phase) }).toEqual(
+        frameFor(phase),
+      );
+    }
+  });
+
+  it("caps live layers per slot at 3", () => {
+    expect(MAX_LAYERS).toBe(3);
+  });
+});
+
+/* ── the count schedule ───────────────────────────────────────────────────── */
+
+describe("tick schedule", () => {
+  const TARGETS = [4, 90, 2, 120];
+
+  it.each(TARGETS)("target %i starts at 0 and lands exactly on target", (t) => {
+    const { values } = tickSchedule(t);
+    expect(values[0]).toBe(0);
+    expect(values[values.length - 1]).toBe(t);
+  });
+
+  it.each(TARGETS)("target %i is strictly increasing, no repeats", (t) => {
+    const { values } = tickSchedule(t);
+    for (let i = 1; i < values.length; i += 1) {
+      expect(values[i]).toBeGreaterThan(values[i - 1]);
+    }
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  /* Deceleration, asserted on the SCHEDULE rather than on observed frame times:
+     the ramp step at ten ticks is 8.9ms, smaller than a 60Hz frame, so sampled
+     dwells invert order even though the schedule never does. */
+  it.each(TARGETS)("target %i has non-decreasing intervals", (t) => {
+    const { intervals } = tickSchedule(t);
+    for (let i = 1; i < intervals.length; i += 1) {
+      expect(intervals[i]).toBeGreaterThanOrEqual(intervals[i - 1]);
+    }
+  });
+
+  it("ticks every integer below the threshold, so 0→4 counts 0,1,2,3,4", () => {
+    expect(tickValues(4)).toEqual([0, 1, 2, 3, 4]);
+    expect(tickValues(2)).toEqual([0, 1, 2]);
+    expect(tickValues(EVERY_INTEGER_MAX)).toHaveLength(EVERY_INTEGER_MAX + 1);
+  });
+
+  /* A constant sampled-step count is what keeps a bigger number from being a
+     longer wait — 90, 120 and 999 all take the same 1200ms. */
+  it.each([19, 20, 90, 120, 999])(
+    "target %i samples to a tick count inside 8–12",
+    (t) => {
+      const steps = tickSchedule(t).values.length - 1;
+      expect(steps).toBeGreaterThanOrEqual(8);
+      expect(steps).toBeLessThanOrEqual(12);
+    },
+  );
+
+  it("runs the two big stats for ~1.2s, inside the 1.0–1.4s band", () => {
+    expect(tickSchedule(90).total).toBeCloseTo(1200, 0);
+    expect(tickSchedule(120).total).toBeCloseTo(1200, 0);
+  });
+
+  /* Small targets finish sooner, and that is the accepted trade. Normalising
+     totals would make 2× flip every 260ms beside 120fps at 71ms — a 3.7×
+     cadence spread that reads as one of them being broken. */
+  it("lets small stats finish early rather than stretching them", () => {
+    expect(tickSchedule(2).total).toBeLessThan(tickSchedule(120).total);
+    expect(tickSchedule(4).total).toBeLessThan(tickSchedule(90).total);
+  });
+
+  it("dwells inside the requested 70–90ms / 150–200ms windows", () => {
+    const { intervals } = tickSchedule(120);
+    expect(intervals[0]).toBe(FIRST_DWELL_MS);
+    expect(intervals[intervals.length - 1]).toBe(LAST_DWELL_MS);
+    expect(FIRST_DWELL_MS).toBeGreaterThanOrEqual(70);
+    expect(FIRST_DWELL_MS).toBeLessThanOrEqual(90);
+    expect(LAST_DWELL_MS).toBeGreaterThanOrEqual(150);
+    expect(LAST_DWELL_MS).toBeLessThanOrEqual(200);
+  });
+
+  /* Without the reservation clamp, ease-out rounding saturates near the end and
+     the tail becomes 11,12,12,12,12 — duplicates, and a target reached early. */
+  it("never saturates early, even where rounding wants to", () => {
+    for (const t of [11, 12, 13, 15, 21, 37]) {
+      const { values } = tickSchedule(t);
+      expect(new Set(values).size).toBe(values.length);
+      expect(values[values.length - 1]).toBe(t);
+      expect(values[values.length - 2]).toBeLessThan(t);
+    }
   });
 });
 
@@ -141,6 +262,9 @@ let host: HTMLDivElement | null = null;
 const observers: Array<(intersecting: boolean) => void> = [];
 
 beforeEach(() => {
+  /* The count is driven by setTimeout against absolute deadlines, so the whole
+     ~1.2s schedule is steppable without waiting for it. */
+  vi.useFakeTimers();
   observers.length = 0;
   class FakeIO {
     constructor(private cb: IntersectionObserverCallback) {
@@ -181,8 +305,29 @@ afterEach(() => {
   host?.remove();
   root = null;
   host = null;
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
+
+/**
+ * What a reader actually sees as the value: the newest layer of each slot.
+ *
+ * NOT `.stats-band__digits`.textContent — during a roll every slot holds two or
+ * three stacked characters, so the raw text of "76" mid-roll reads as "6786".
+ * They are absolutely positioned on top of each other, so that string never
+ * appears on screen, but a test that asserted on it would be measuring the DOM
+ * rather than the design.
+ */
+function visibleValues(): string[] {
+  return [...host!.querySelectorAll(".stats-band__digits")].map((run) =>
+    [...run.querySelectorAll(".stats-band__slot")]
+      .map((slot) => {
+        const layers = slot.querySelectorAll(".stats-band__char");
+        return layers[layers.length - 1]?.textContent ?? "";
+      })
+      .join(""),
+  );
+}
 
 async function mount(reduced = false) {
   window.matchMedia = ((q: string) => ({
@@ -206,12 +351,30 @@ async function mount(reduced = false) {
 describe("StatsBand structure", () => {
   it("splits every stat into per-digit slots plus a suffix slot", async () => {
     await mount();
-    const values = [...host!.querySelectorAll(".stats-band__value")];
-    expect(values).toHaveLength(4);
-    // 4× · 90% · 2× · 120fps  →  1+1, 2+1, 1+1, 3+1
-    expect(values.map((v) => v.querySelectorAll(".stats-band__slot").length)).toEqual(
-      [2, 3, 2, 4],
-    );
+    const slotCounts = () =>
+      [...host!.querySelectorAll(".stats-band__value")].map(
+        (v) => v.querySelectorAll(".stats-band__slot").length,
+      );
+
+    /* Pre-reveal the count sits at 0, so every stat is one digit + its suffix.
+       The digit run still reserves the TARGET's width, so nothing shifts when
+       the count grows into it. */
+    expect(slotCounts()).toEqual([2, 2, 2, 2]);
+    expect(
+      [...host!.querySelectorAll(".stats-band__digits")].map((d) =>
+        (d as HTMLElement).style.getPropertyValue("--digit-width"),
+      ),
+    ).toEqual(["1", "2", "1", "3"]);
+
+    await act(async () => {
+      observers.forEach((fire) => fire(true));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    // Settled: 4× · 90% · 2× · 120fps → 1+1, 2+1, 1+1, 3+1
+    expect(slotCounts()).toEqual([2, 3, 2, 4]);
   });
 
   it("marks the suffix slot so it can size to its own text", async () => {
@@ -222,12 +385,44 @@ describe("StatsBand structure", () => {
     // Doubled because each suffix slot carries an aria-hidden sizer copy.
   });
 
-  it("renders the real numbers, never an intermediate count", async () => {
+  /* DELIBERATELY INVERTED (2026-07-29). This assertion previously read "renders
+     the real numbers, never an intermediate count" and enforced the opposite
+     rule: the earlier spec forbade ticking through integers. The owner reversed
+     it — the numbers must now count. Inverting rather than deleting keeps the
+     reversal legible, so nobody later reads the absence of a rule as an
+     oversight and "restores" it. */
+  it("DOES render intermediate values while counting", async () => {
     await mount();
-    const text = host!.textContent ?? "";
-    for (const n of ["4", "90", "2", "120"]) expect(text).toContain(n);
-    // The old implementation started every stat at 0 and ticked upward.
-    expect(host!.querySelector(".stats-band__value")?.textContent).not.toBe("0");
+    // Before reveal the count sits at 0 — the reveal is what starts it.
+    expect(visibleValues()).toEqual(["0", "0", "0", "0"]);
+
+    await act(async () => {
+      observers.forEach((fire) => fire(true));
+    });
+
+    const seen = new Set<string>();
+    for (let i = 0; i < 30; i += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(50);
+      });
+      visibleValues().forEach((d) => seen.add(d));
+    }
+    // The 120 stat must pass through values that are neither 0 nor the target.
+    const intermediates = [...seen].filter(
+      (v) => v !== "" && v !== "0" && !["4", "90", "2", "120"].includes(v),
+    );
+    expect(intermediates.length).toBeGreaterThan(0);
+  });
+
+  it("lands on the exact targets, never one short", async () => {
+    await mount();
+    await act(async () => {
+      observers.forEach((fire) => fire(true));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(visibleValues()).toEqual(["4", "90", "2", "120"]);
   });
 });
 
@@ -258,6 +453,107 @@ describe("StatsBand reveal", () => {
     const bare = html.replace(/<[^>]+>/g, "");
     expect(bare).toContain("120");
     expect(bare).toContain("fps");
+  });
+});
+
+/* ── the change path, now live ────────────────────────────────────────────── */
+
+describe("digit roll: old and new characters coexist during a tick", () => {
+  /* This is the test I flagged as missing when the change path was dormant. It
+     is not dormant now — every tick drives it. */
+  it("stacks a new layer instead of mutating the old one", async () => {
+    const calls: Array<{ keyframes: unknown; options: unknown }> = [];
+    vi.spyOn(Element.prototype, "animate").mockImplementation(function (
+      this: Element,
+      keyframes: unknown,
+      options: unknown,
+    ) {
+      calls.push({ keyframes, options });
+      return {
+        finished: new Promise(() => {}), // never settles: hold the roll open
+        cancel() {},
+        commitStyles() {},
+      } as unknown as Animation;
+    } as typeof Element.prototype.animate);
+
+    await mount();
+    await act(async () => {
+      observers.forEach((fire) => fire(true));
+    });
+    // Far enough in for the ones digit of 120 to have ticked several times.
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    const slots = [...host!.querySelectorAll(".stats-band__slot")];
+    const stacked = slots.filter(
+      (s) => s.querySelectorAll(".stats-band__char").length > 1,
+    );
+    expect(stacked.length).toBeGreaterThan(0);
+
+    /* Only the newest layer carries the value; the ones leaving are decoration
+       and must not be announced twice. */
+    for (const slot of stacked) {
+      const chars = [...slot.querySelectorAll(".stats-band__char")];
+      const hidden = chars.filter((c) => c.getAttribute("aria-hidden") === "true");
+      expect(hidden).toHaveLength(chars.length - 1);
+      expect(chars[chars.length - 1].getAttribute("aria-hidden")).toBeNull();
+    }
+  });
+
+  it("never stacks more than the cap", async () => {
+    vi.spyOn(Element.prototype, "animate").mockImplementation(
+      () =>
+        ({
+          finished: new Promise(() => {}),
+          cancel() {},
+          commitStyles() {},
+        }) as unknown as Animation,
+    );
+
+    await mount();
+    await act(async () => {
+      observers.forEach((fire) => fire(true));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    for (const slot of host!.querySelectorAll(".stats-band__slot")) {
+      expect(
+        slot.querySelectorAll(".stats-band__char").length,
+      ).toBeLessThanOrEqual(MAX_LAYERS);
+    }
+  });
+
+  it("drives each roll with a spring pair and a separate linear blur", async () => {
+    const eased: string[] = [];
+    vi.spyOn(Element.prototype, "animate").mockImplementation(function (
+      _keyframes: unknown,
+      options: { easing?: string },
+    ) {
+      if (options?.easing) eased.push(options.easing);
+      return {
+        finished: new Promise(() => {}),
+        cancel() {},
+        commitStyles() {},
+      } as unknown as Animation;
+    } as typeof Element.prototype.animate);
+
+    await mount();
+    await act(async () => {
+      observers.forEach((fire) => fire(true));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(eased).toContain(SPRING_EASING);
+    expect(eased).toContain(BLUR_EASING);
+    // Every spring animation is paired with a blur animation.
+    expect(eased.filter((e) => e === BLUR_EASING).length).toBe(
+      eased.filter((e) => e === SPRING_EASING).length,
+    );
   });
 });
 
