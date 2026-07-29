@@ -21,6 +21,13 @@
   padding-top: var(--space-4);
 }
 
+/* The glyph leads the rail, above the marker: the drawing is the first thing you
+   meet and the text answers it. A little more air than the rail's own --space-3
+   gap, so the drawing reads as an illustration rather than another list item. */
+.audience-rails__rail .audience-glyph {
+  margin-bottom: var(--space-2);
+}
+
 .audience-rails__marker {
   font-family: var(--font-mono);
   font-size: 12px;
