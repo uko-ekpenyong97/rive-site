@@ -86,19 +86,46 @@ describe("CaseStudies: real posters replace the demo placeholders", () => {
     expect(/DEMO SLOT/i.test(csHtml)).toBe(false);
   });
 
-  /* Crop overrides are per-story data. Brilliant's mascot sits bottom-left and
-     a centred crop sliced it, so that one is anchored low; the rest centre. */
-  it("exactly one crop override set", () => {
-    expect(count(csHtml, /object-position/g)).toBe(1);
+  /* Crop overrides are per-story data. The slot is ~3.3:1 against 16:9 sources,
+     so `cover` discards roughly half of every poster's height, and any story whose
+     subject sits off-centre needs an anchor. Pinned as an exact SET rather than a
+     bare count: a count alone would let a second override arrive unexamined, and
+     could be satisfied by the right number on the wrong panels. Each anchor was
+     chosen by looking at rendered candidates (scripts/analyze-crop.mjs), not by
+     taking the metric's optimum — on both of these the optimum looked worse. */
+  const CROP_ANCHORS: Record<string, string> = {
+    // Mascot sits bottom-left; a centred crop sliced it.
+    brilliant: "center 85%",
+    // Anchored low so the "Your top song — Abracadabra by Lady Gaga" caption
+    // survives whole. Centre captures more edge detail but cuts the caption.
+    spotify: "center 83%",
+  };
+
+  it(`exactly ${Object.keys(CROP_ANCHORS).length} crop overrides set`, () => {
+    expect(count(csHtml, /object-position/g)).toBe(
+      Object.keys(CROP_ANCHORS).length,
+    );
   });
 
-  it("the override is on brilliant, anchored low", () => {
-    expect(
-      /case-study-panel-brilliant"[\s\S]*?object-position:\s*center 85%/.test(
-        csHtml,
-      ),
-    ).toBe(true);
-  });
+  it.each(Object.entries(CROP_ANCHORS))(
+    "the %s override is anchored at %s",
+    (id, anchor) => {
+      const pattern = new RegExp(
+        `case-study-panel-${id}"[\\s\\S]*?object-position:\\s*${anchor}`,
+      );
+      expect(pattern.test(csHtml)).toBe(true);
+    },
+  );
+
+  it.each(EXPECTED.filter((id) => !CROP_ANCHORS[id]))(
+    "%s has no crop override",
+    (id) => {
+      const panel = csHtml.split(`case-study-panel-${id}"`)[1] ?? "";
+      expect(panel.split("case-study-panel-")[0]).not.toContain(
+        "object-position",
+      );
+    },
+  );
 
   it(`all ${EXPECTED.length} poster files resolve locally`, () => {
     // The original called node's `existsSync` against paths relative to the

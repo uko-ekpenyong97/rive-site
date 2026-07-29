@@ -55,6 +55,13 @@ const STORIES: Story[] = [
       { value: "#1", label: "biggest subscriber day in Spotify history" },
     ],
     poster: spotifyPoster,
+    /* Three phones on Spotify green, cropped to a 3.3:1 band that keeps only 609
+       of 1125 source rows. Anchored low so the "Your top song — Abracadabra by
+       Lady Gaga" caption survives whole: it is the one element that says what
+       the screens ARE. Centre captures marginally more edge detail (61.4% vs
+       56.9% by scripts/analyze-crop.mjs) but cuts the caption off entirely, and
+       lower anchors clip a track title or the Max button mid-element. */
+    objectPosition: "center 83%",
     url: "https://rive.app/blog/spotify-used-rive-for-spotify-wrapped-2025",
   },
   {

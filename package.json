@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "probe:riv": "node scripts/probe-riv.mjs",
     "check:assets": "node scripts/check-riv-assets.mjs",
-    "check:render": "node scripts/render-check.mjs"
+    "check:render": "node scripts/render-check.mjs",
+    "analyze:crop": "node scripts/analyze-crop.mjs"
   },
   "dependencies": {
     "@rive-app/react-webgl2": "^4.30.0",
