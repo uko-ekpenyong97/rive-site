@@ -185,6 +185,59 @@ try {
   loadFailures.length === 0
     ? good("no glyph load failures reported")
     : loadFailures.forEach((w) => bad(w));
+
+  /* ── StatsBand digit roll ───────────────────────────────────────────────
+     The digit animations run on the Web Animations API, so their in-flight
+     values never touch the style attribute and a unit test cannot see them.
+     What a unit test also cannot see is whether they SETTLED — a spring that
+     overshoots and never returns, or a fill that leaves a digit at opacity 0,
+     would look exactly like a passing test suite. Only a real browser can say.
+
+     This deliberately asserts the settled state and nothing mid-flight. */
+  console.log("");
+  await evaluate(
+    "document.querySelector('.stats-band')?.scrollIntoView({block:'center'})",
+  );
+  // Longest ripple is 3 digits + suffix: 150ms delay + 150ms spring, plus slack.
+  await sleep(1200);
+
+  const stats = await evaluate(`(() => {
+    const chars = [...document.querySelectorAll('.stats-band__char')];
+    return {
+      slots: document.querySelectorAll('.stats-band__slot').length,
+      chars: chars.length,
+      unsettled: chars
+        .map((c, i) => {
+          const s = getComputedStyle(c);
+          const opacity = Number(s.opacity);
+          const blurred = s.filter !== 'none' && !/blur\\(0px\\)/.test(s.filter);
+          return { i, text: c.textContent, opacity, filter: s.filter, blurred };
+        })
+        .filter((c) => c.opacity < 0.99 || c.blurred),
+      // Sizers are aria-hidden and intentionally invisible; exclude them.
+      clipped: [...document.querySelectorAll('.stats-band__slot')]
+        .filter((s) => getComputedStyle(s).overflow !== 'visible').length,
+      value: document.querySelector('.stats-band__value')?.textContent ?? '',
+    };
+  })()`);
+
+  stats.chars > 0
+    ? good(`StatsBand: ${stats.chars} character slots rendered`)
+    : bad("StatsBand: no character slots found");
+
+  stats.unsettled.length === 0
+    ? good("StatsBand: every digit settled (opacity 1, no blur)")
+    : stats.unsettled.forEach((c) =>
+        bad(
+          `StatsBand: digit ${c.i} ("${c.text}") unsettled — opacity ${c.opacity}, filter ${c.filter}`,
+        ),
+      );
+
+  /* The blur has to breathe past the cell; a clipped slot turns the roll into
+     a hard-edged wipe. */
+  stats.clipped === 0
+    ? good("StatsBand: no slot clips its blur")
+    : bad(`StatsBand: ${stats.clipped} slot(s) have overflow != visible`);
 } catch (err) {
   bad(err.message);
 } finally {
@@ -193,7 +246,7 @@ try {
 
 console.log(
   failures === 0
-    ? "\n✓ all three glyphs rendered"
+    ? "\n✓ glyphs rendered and stat digits settled"
     : `\n✗ ${failures} problem(s)`,
 );
 process.exit(failures === 0 ? 0 : 1);

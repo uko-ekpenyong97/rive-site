@@ -26,6 +26,50 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* One character cell. The fixed slot is what gives the row its tabular rhythm —
+   `font-variant-numeric` above is belt-and-braces, not the mechanism. */
+.stats-band__slot {
+  display: inline-block;
+  position: relative;
+  width: 0.6em;
+  height: 1em;
+  /* Deliberately NOT overflow: hidden. The blur has to breathe past the cell;
+     clipping it turns a soft roll into a hard-edged wipe. */
+}
+
+/* Suffixes ("×", "%", "fps") are wider than a digit and vary per stat, so this
+   one sizes to its own content instead of the digit grid. */
+.stats-band__slot--suffix {
+  width: auto;
+}
+
+/* An in-flow, invisible copy that gives the suffix slot its width — the visible
+   character is absolutely positioned and so contributes none. */
+.stats-band__sizer {
+  visibility: hidden;
+}
+
+.stats-band__char {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  text-align: center;
+  /* The resting state. Offsets in statsBandMotion.ts compose on top of this. */
+  transform: translateY(-50%);
+  opacity: 1;
+  filter: blur(0px);
+}
+
+/* Pre-reveal. Applied before paint by the component, never rendered into the
+   markup, so the settled value is what ships without JS. Matches the `incoming`
+   frame exactly: the reveal animates from precisely here. */
+.stats-band__char[data-state="hidden"] {
+  opacity: 0;
+  filter: blur(4px);
+  transform: translateY(0%);
+}
+
 .stats-band__label {
   margin-top: var(--space-2);
   font-family: var(--font-body);
