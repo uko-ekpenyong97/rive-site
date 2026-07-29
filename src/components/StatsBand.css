@@ -79,6 +79,17 @@
   transform: translateY(0%);
 }
 
+/* The wheel turning too fast to read. The character swaps in place — no travel,
+   no layer stacking — and holds a sustained blur instead of pulsing one per
+   change. That pulse was the measured problem: edge sharpness crossed its
+   midpoint 16 times in 1.27s, a 6.3Hz flicker, and frames showed a value frozen
+   for six frames then flashing. Here it simply spins. */
+.stats-band__char[data-state="spin"] {
+  opacity: 0.8;
+  filter: blur(4px);
+  transform: translateY(-50%);
+}
+
 .stats-band__label {
   margin-top: var(--space-2);
   font-family: var(--font-body);

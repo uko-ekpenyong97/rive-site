@@ -68,72 +68,164 @@ export const COUNT_STAGGER_MS = 0;
 /**
  * Live character layers per slot, oldest dropped first.
  *
- * Bound by ceil(roll / minTick) + 1 = 3 at the shipped cadence, where it is
- * never actually reached — natural retirement on `finished` handles everything.
- * It exists as a leak guard for a backgrounded tab or a stalled timeline. A cap
- * of 2 was measured yanking a 25%-opaque glyph at tighter cadences.
+ * MEASURED TWICE, and the number moved both times — so the history matters more
+ * than the value.
+ *
+ * Under the old discrete-tick count this cap WAS reached: peak 3, on 11 of 77
+ * frames. An earlier comment here claimed it never was, and was wrong, because
+ * it assumed a layer dies 150ms after it is CREATED; a layer actually dies 150ms
+ * after it is RETARGETED, so one retargeted at a tick is still alive at the next
+ * whenever the interval is under 150ms.
+ *
+ * Under the two-regime count it is NOT reached: measured peak 2. The spin phase
+ * spawns no layers at all (it swaps characters in place), and every tail dwell
+ * is at least one roll long, so an outgoing layer always retires before the next
+ * one arrives. The cap is a guard again rather than a working limit — but it is
+ * cheap, and the arithmetic that makes it unnecessary lives in TAIL_DWELLS,
+ * which is exactly the kind of thing a future tune could break.
  */
 export const MAX_LAYERS = 3;
 
-/* ── the count schedule ───────────────────────────────────────────────────── */
+/* ── the count: a spin that clunks home ───────────────────────────────────── */
 
-/** At or below this, tick through every integer: 0→4 counts 0,1,2,3,4. */
-export const EVERY_INTEGER_MAX = 10;
-/** Sampled steps above it. Constant, so a bigger number is not a longer wait. */
-export const SAMPLED_STEPS = 10;
-/** Ease-out exponent in VALUE space. 2 = quadratic. */
-export const VALUE_EASE = 2;
-/** Dwell on the first value, and on the last one before it lands. */
-export const FIRST_DWELL_MS = 80;
-export const LAST_DWELL_MS = 160;
+/**
+ * WHY THIS REPLACED A DISCRETE TICK SCHEDULE.
+ *
+ * The previous design sampled ten integers and rolled every changed digit at
+ * each one. Two measurements killed it:
+ *
+ *  - At ten sampled ticks there is NO odometer hierarchy. On 120 the ones digit
+ *    changed 9 of 10 times and the tens 8 of 10 — at the same instants. Seven of
+ *    ten ticks moved two or three slots simultaneously with identical
+ *    choreography, so it read as the whole number flashing in unison.
+ *  - The dominant jaggedness was not positional but a BLUR SAWTOOTH: edge
+ *    sharpness crossed its midpoint 16 times in 1.27s, a 6.3Hz flicker in the
+ *    most perceptually salient band. Frame captures showed a value held frozen
+ *    for six frames, then a two-frame ghosted flash, repeating.
+ *
+ * A fast/slow classifier on DWELL could not fix it: dwells spanned 80–160ms
+ * against a 150ms roll, so the widest clear air any dwell bought was 10ms —
+ * six tenths of a frame — and 33 of 38 intervals were effectively fast.
+ *
+ * The split had to be on the value DRIVER. Below: a continuous phase where the
+ * number climbs every frame and each digit holds a spin state, handing off to a
+ * short tail of real, crafted rolls.
+ */
+
+/** Blur and opacity a digit holds while it is turning too fast to read. */
+export const SPIN_BLUR_PX = 4;
+export const SPIN_OPACITY = 0.8;
+
+/**
+ * A digit leaves spin once it has held the same character this long.
+ *
+ * Equal to the roll duration by construction: "changing slower than a roll can
+ * complete" is exactly the point at which a discrete roll becomes possible.
+ */
+export const SPIN_EXIT_MS = SPRING_DURATION_MS;
+
+/** How long the continuous phase runs on a target big enough to spin. */
+export const SPIN_DURATION_MS = 600;
+
+/**
+ * The landing. Each of the last integers gets a real, crafted roll, and they
+ * lengthen so the wheel audibly clunks home: 117 → 118 → 119 → 120.
+ *
+ * A code constant, not a dial. Half of a big stat's 1200ms is this tail, and
+ * that is the design rather than a cost — a plain ease-out cannot decelerate
+ * into a roll on its own (landing 120 at 1200ms leaves the ones digit still
+ * changing every 83ms, so it would spin straight through the finish and stop
+ * dead). The tail is what makes the deceleration land.
+ */
+export const TAIL_DWELLS = [150, 200, 250];
+
+/** At or below this there is nothing to spin — every step is a crafted roll. */
+export const SPIN_MIN_TARGET = 5;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-/**
- * The integer sequence from 0 to target, sampled off an ease-out curve.
- *
- * The `hi` clamp is the load-bearing line: it reserves one integer for every
- * remaining step, so the curve can never reach the target early, no value can
- * repeat, and the final entry is always exactly `target`. Without it, ease-out
- * rounding saturates near the end and 0→12 finishes 11,12,12,12,12.
- */
-export function tickValues(target: number): number[] {
-  const t = Math.max(0, Math.round(target));
-  if (t === 0) return [0];
-  if (t <= EVERY_INTEGER_MAX) return Array.from({ length: t + 1 }, (_, i) => i);
+export interface TailStep {
+  value: number;
+  /** How long the PREVIOUS value is held before this one commits. */
+  dwell: number;
+  /** Absolute time from the start of the count. */
+  at: number;
+}
 
-  const n = SAMPLED_STEPS;
-  const values = [0];
-  for (let i = 1; i < n; i += 1) {
-    const eased = 1 - Math.pow(1 - i / n, VALUE_EASE);
-    values.push(clamp(Math.round(t * eased), values[i - 1] + 1, t - (n - i)));
-  }
-  values.push(t);
-  return values;
+export interface CountPlan {
+  /** Null when the target is too small to spin. */
+  spin: { to: number; duration: number } | null;
+  tail: TailStep[];
+  total: number;
 }
 
 /**
- * Dwell before each next tick. `intervals[i]` is how long `values[i]` is on
- * screen; the final value has no dwell, it rests. A linear ramp makes
- * non-decreasing structural rather than asserted-and-hoped.
+ * Rate at time t during the spin, in integers per ms.
+ *
+ * Deceleration is LINEAR IN RATE, which is what a wheel under constant braking
+ * actually does, and it is chosen so the rate at handoff is exactly one integer
+ * per roll — the continuous phase arrives at the discrete cadence rather than
+ * being cut off at it.
  */
-export function tickIntervals(steps: number): number[] {
+function spinRate(spinTo: number, duration: number) {
+  const end = 1 / SPRING_DURATION_MS;
+  const start = (2 * spinTo) / duration - end;
+  return { start, end };
+}
+
+/** The continuous value at time t. Integrates the linear rate ramp above. */
+export function spinValueAt(t: number, spinTo: number, duration: number): number {
+  if (duration <= 0) return spinTo;
+  const time = clamp(t, 0, duration);
+  const { start, end } = spinRate(spinTo, duration);
+  const value = start * time + ((end - start) * time * time) / (2 * duration);
+  return clamp(Math.round(value), 0, spinTo);
+}
+
+/** Dwells for a target small enough that every step is a crafted roll. */
+function craftedDwells(steps: number): number[] {
+  const first = TAIL_DWELLS[0];
+  const last = TAIL_DWELLS[TAIL_DWELLS.length - 1];
   if (steps <= 0) return [];
-  if (steps === 1) return [LAST_DWELL_MS];
-  const span = LAST_DWELL_MS - FIRST_DWELL_MS;
+  if (steps === 1) return [last];
   return Array.from(
     { length: steps },
-    (_, i) => FIRST_DWELL_MS + (span * i) / (steps - 1),
+    (_, i) => first + ((last - first) * i) / (steps - 1),
   );
 }
 
-/** Values, dwells, and the absolute time each value should commit. */
-export function tickSchedule(target: number) {
-  const values = tickValues(target);
-  const intervals = tickIntervals(values.length - 1);
-  const times = [0];
-  intervals.forEach((interval, i) => times.push(times[i] + interval));
-  return { values, intervals, times, total: times[times.length - 1] };
+function buildTail(from: number, to: number, dwells: number[], startAt: number) {
+  const tail: TailStep[] = [];
+  let at = startAt;
+  for (let i = 0; i < to - from; i += 1) {
+    at += dwells[i];
+    tail.push({ value: from + i + 1, dwell: dwells[i], at });
+  }
+  return tail;
+}
+
+/**
+ * The whole count for one target: an optional continuous spin, then a tail of
+ * crafted rolls that always ends exactly on the target.
+ */
+export function countPlan(target: number): CountPlan {
+  const t = Math.max(0, Math.round(target));
+  if (t === 0) return { spin: null, tail: [], total: 0 };
+
+  /* Nothing to spin: 2 and 4 are all landing, which is correct — a two-step
+     count has no fast phase to smooth. */
+  if (t <= SPIN_MIN_TARGET) {
+    const tail = buildTail(0, t, craftedDwells(t), 0);
+    return { spin: null, tail, total: tail[tail.length - 1].at };
+  }
+
+  const spinTo = t - TAIL_DWELLS.length;
+  const tail = buildTail(spinTo, t, TAIL_DWELLS, SPIN_DURATION_MS);
+  return {
+    spin: { to: spinTo, duration: SPIN_DURATION_MS },
+    tail,
+    total: tail[tail.length - 1].at,
+  };
 }
 
 /** Blur the digits breathe through. The slot must not clip it. */

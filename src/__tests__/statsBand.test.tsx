@@ -15,17 +15,20 @@ import {
   MAX_LAYERS,
   OFFSET,
   CENTER_OFFSET,
-  EVERY_INTEGER_MAX,
-  FIRST_DWELL_MS,
-  LAST_DWELL_MS,
+  SPIN_BLUR_PX,
+  SPIN_OPACITY,
+  SPIN_EXIT_MS,
+  SPIN_DURATION_MS,
+  SPIN_MIN_TARGET,
+  TAIL_DWELLS,
   frameFor,
   springFrame,
   blurFrame,
   delayFor,
   mirror,
   transformFor,
-  tickValues,
-  tickSchedule,
+  countPlan,
+  spinValueAt,
 } from "../components/statsBandMotion";
 
 /**
@@ -37,6 +40,17 @@ import {
  * pass for the wrong reason. Instead this pins the motion CONTRACT (the exact
  * frames, the stagger arithmetic, the baked curve) and leaves the settled-state
  * check to scripts/render-check.mjs, which asks a real browser.
+ *
+ * THE STROBE METRIC IS PARTLY BLIND — read this before optimising against it.
+ * The smoothness investigation scored candidates on max per-frame movement of
+ * the ink centroid. That metric cannot see glyph-shape churn: an outgoing and an
+ * incoming glyph rise past each other and their centroids largely cancel, so a
+ * candidate can score well and still visibly strobe. It ranked a "reduced
+ * travel" variant best; frame captures showed that variant had simply amputated
+ * the motion into a dissolve-in-place, with MORE frozen frames than the version
+ * it replaced. The montage adjudicated, not the number. Any future tuning here
+ * must be judged on rendered frames — improving the metric alone is capable of
+ * making this worse.
  */
 
 /* ── the contract ─────────────────────────────────────────────────────────── */
@@ -131,127 +145,114 @@ describe("digit-roll motion values (pinned — a softer 'cleanup' must fail here
   });
 });
 
-/* ── the count schedule ───────────────────────────────────────────────────── */
+/* ── the count plan ──────────────────────────────────────────────────────── */
 
-describe("tick schedule", () => {
-  const TARGETS = [4, 90, 2, 120];
+describe("count plan: a spin that clunks home", () => {
+  const BIG = [90, 120];
 
-  it.each(TARGETS)("target %i starts at 0 and lands exactly on target", (t) => {
-    const { values } = tickSchedule(t);
-    expect(values[0]).toBe(0);
-    expect(values[values.length - 1]).toBe(t);
+  it.each(BIG)("target %i spins, then lands through a crafted tail", (t) => {
+    const plan = countPlan(t);
+    expect(plan.spin).not.toBeNull();
+    expect(plan.spin!.to).toBe(t - TAIL_DWELLS.length);
+    expect(plan.tail.map((s) => s.value)).toEqual([t - 2, t - 1, t]);
   });
 
-  it.each(TARGETS)("target %i is strictly increasing, no repeats", (t) => {
-    const { values } = tickSchedule(t);
-    for (let i = 1; i < values.length; i += 1) {
-      expect(values[i]).toBeGreaterThan(values[i - 1]);
+  it.each(BIG)("target %i still totals ~1.2s", (t) => {
+    expect(countPlan(t).total).toBeCloseTo(1200, 0);
+  });
+
+  /* Half of a big stat is the landing, and that IS the design — a plain
+     ease-out cannot decelerate into a roll on its own, so the tail is what
+     makes the deceleration land rather than stop dead. */
+  it("splits a big count evenly between spinning and landing", () => {
+    const plan = countPlan(120);
+    expect(plan.spin!.duration).toBe(SPIN_DURATION_MS);
+    expect(plan.total - plan.spin!.duration).toBe(600);
+  });
+
+  it("lengthens each tail dwell so the wheel clunks home", () => {
+    expect(TAIL_DWELLS).toEqual([150, 200, 250]);
+    for (let i = 1; i < TAIL_DWELLS.length; i += 1) {
+      expect(TAIL_DWELLS[i]).toBeGreaterThan(TAIL_DWELLS[i - 1]);
     }
+    /* Every tail dwell must clear a roll, or the landing is not crafted. */
+    for (const d of TAIL_DWELLS) expect(d).toBeGreaterThanOrEqual(150);
+  });
+
+  /* Nothing to spin: a two-step count has no fast phase to smooth, so 2 and 4
+     are all landing. */
+  it.each([2, 4, SPIN_MIN_TARGET])("target %i does not spin at all", (t) => {
+    const plan = countPlan(t);
+    expect(plan.spin).toBeNull();
+    expect(plan.tail.map((s) => s.value)).toEqual(
+      Array.from({ length: t }, (_, i) => i + 1),
+    );
+  });
+
+  it.each([2, 4, 90, 120])("target %i lands exactly on target", (t) => {
+    const plan = countPlan(t);
+    expect(plan.tail[plan.tail.length - 1].value).toBe(t);
+  });
+
+  it.each([2, 4, 90, 120])("target %i never repeats a tail value", (t) => {
+    const values = countPlan(t).tail.map((s) => s.value);
     expect(new Set(values).size).toBe(values.length);
   });
 
-  /* Deceleration, asserted on the SCHEDULE rather than on observed frame times:
-     the ramp step at ten ticks is 8.9ms, smaller than a 60Hz frame, so sampled
-     dwells invert order even though the schedule never does. */
-  it.each(TARGETS)("target %i has non-decreasing intervals", (t) => {
-    const { intervals } = tickSchedule(t);
-    for (let i = 1; i < intervals.length; i += 1) {
-      expect(intervals[i]).toBeGreaterThanOrEqual(intervals[i - 1]);
-    }
-  });
-
-  it("ticks every integer below the threshold, so 0→4 counts 0,1,2,3,4", () => {
-    expect(tickValues(4)).toEqual([0, 1, 2, 3, 4]);
-    expect(tickValues(2)).toEqual([0, 1, 2]);
-    expect(tickValues(EVERY_INTEGER_MAX)).toHaveLength(EVERY_INTEGER_MAX + 1);
-  });
-
-  /* A constant sampled-step count is what keeps a bigger number from being a
-     longer wait — 90, 120 and 999 all take the same 1200ms. */
-  it.each([19, 20, 90, 120, 999])(
-    "target %i samples to a tick count inside 8–12",
-    (t) => {
-      const steps = tickSchedule(t).values.length - 1;
-      expect(steps).toBeGreaterThanOrEqual(8);
-      expect(steps).toBeLessThanOrEqual(12);
-    },
-  );
-
-  it("runs the two big stats for ~1.2s, inside the 1.0–1.4s band", () => {
-    expect(tickSchedule(90).total).toBeCloseTo(1200, 0);
-    expect(tickSchedule(120).total).toBeCloseTo(1200, 0);
-  });
-
-  /* Small targets finish sooner, and that is the accepted trade. Normalising
-     totals would make 2× flip every 260ms beside 120fps at 71ms — a 3.7×
-     cadence spread that reads as one of them being broken. */
-  it("lets small stats finish early rather than stretching them", () => {
-    expect(tickSchedule(2).total).toBeLessThan(tickSchedule(120).total);
-    expect(tickSchedule(4).total).toBeLessThan(tickSchedule(90).total);
-  });
-
-  it("dwells inside the requested 70–90ms / 150–200ms windows", () => {
-    const { intervals } = tickSchedule(120);
-    expect(intervals[0]).toBe(FIRST_DWELL_MS);
-    expect(intervals[intervals.length - 1]).toBe(LAST_DWELL_MS);
-    expect(FIRST_DWELL_MS).toBeGreaterThanOrEqual(70);
-    expect(FIRST_DWELL_MS).toBeLessThanOrEqual(90);
-    expect(LAST_DWELL_MS).toBeGreaterThanOrEqual(150);
-    expect(LAST_DWELL_MS).toBeLessThanOrEqual(200);
-  });
-
-  /* Without the reservation clamp, ease-out rounding saturates near the end and
-     the tail becomes 11,12,12,12,12 — duplicates, and a target reached early. */
-  it("never saturates early, even where rounding wants to", () => {
-    for (const t of [11, 12, 13, 15, 21, 37]) {
-      const { values } = tickSchedule(t);
-      expect(new Set(values).size).toBe(values.length);
-      expect(values[values.length - 1]).toBe(t);
-      expect(values[values.length - 2]).toBeLessThan(t);
+  it("commits every tail step in increasing time order", () => {
+    const tail = countPlan(120).tail;
+    for (let i = 1; i < tail.length; i += 1) {
+      expect(tail[i].at).toBeGreaterThan(tail[i - 1].at);
     }
   });
 });
 
-/* ── the baked curve ──────────────────────────────────────────────────────── */
-
-describe("the baked spring is provably Framer's, not merely spring-ish", () => {
-  /* `motion` is imported HERE AND ONLY HERE, in a test. It must never reach a
-     component: StatsBand is on Home, and importing motion into the entry chunk
-     measured +43.4 kB gzipped (171,506 → 214,934) to animate four numbers.
-     CLAUDE.md keeps it off visitor-facing chunks; /showcase is lazy for exactly
-     that reason. This import is the regeneration check, not a dependency. */
-  it("regenerates byte-identically from the real motion package", async () => {
-    const { spring, generateLinearEasing, calcGeneratorDuration } =
-      await import("motion");
-
-    const generator = spring({
-      duration: SPRING_DURATION_MS,
-      bounce: SPRING_BOUNCE,
-      keyframes: [0, 1],
-    });
-    const settleMs = calcGeneratorDuration(generator);
-    const regenerated = generateLinearEasing(
-      (t: number) => generator.next(t * settleMs).value,
-      settleMs,
+describe("the spin curve", () => {
+  /* Deceleration is linear IN RATE — what a wheel under constant braking does —
+     chosen so the rate at handoff is exactly one integer per roll. The
+     continuous phase arrives at the discrete cadence instead of being cut off
+     at it. */
+  it("decelerates: each successive 100ms covers fewer integers", () => {
+    const { to, duration } = countPlan(120).spin!;
+    const samples = [0, 100, 200, 300, 400, 500, 600].map((t) =>
+      spinValueAt(t, to, duration),
     );
-
-    expect(settleMs).toBe(SPRING_DURATION_MS);
-    expect(regenerated).toBe(SPRING_EASING);
+    const deltas = samples.slice(1).map((v, i) => v - samples[i]);
+    for (let i = 1; i < deltas.length; i += 1) {
+      expect(deltas[i]).toBeLessThanOrEqual(deltas[i - 1]);
+    }
   });
 
-  it("overshoots, because bounce 0.2 is supposed to", () => {
-    const points = SPRING_EASING.match(/[\d.]+/g)!.map(Number);
-    expect(Math.max(...points)).toBeGreaterThan(1);
-    expect(Math.max(...points)).toBeCloseTo(1.0151, 4);
+  it("starts at 0 and hands off exactly at the spin target", () => {
+    const { to, duration } = countPlan(120).spin!;
+    expect(spinValueAt(0, to, duration)).toBe(0);
+    expect(spinValueAt(duration, to, duration)).toBe(to);
+    expect(spinValueAt(duration * 2, to, duration)).toBe(to);
   });
 
-  /* The overshoot rides the TRANSFORM. Opacity and blur clamp at their floors
-     when the curve passes target — correct, and deliberately not asserted as
-     applying unclamped to `filter`. This test exists to say so out loud. */
-  it("starts at 0 and ends at exactly 1", () => {
-    const points = SPRING_EASING.match(/[\d.]+/g)!.map(Number);
-    expect(points[0]).toBe(0);
-    expect(points[points.length - 1]).toBe(1);
+  /* The whole point of the redesign: during the fast phase the number must
+     change on essentially every frame, not hold for six and then flash. */
+  it("changes value on most frames during the fast phase", () => {
+    const { to, duration } = countPlan(120).spin!;
+    const frames = Array.from({ length: 18 }, (_, i) =>
+      spinValueAt(i * (1000 / 60), to, duration),
+    );
+    const changes = frames.slice(1).filter((v, i) => v !== frames[i]).length;
+    expect(changes).toBe(frames.length - 1);
+  });
+});
+
+describe("spin state values (pinned)", () => {
+  it("holds a sustained blur and a slight dim, not a pulse", () => {
+    expect(SPIN_BLUR_PX).toBe(4);
+    expect(SPIN_OPACITY).toBe(0.8);
+  });
+
+  /* A digit leaves spin once it has held the same character for a roll's worth
+     of time — "changing slower than a roll can complete" is exactly when a
+     discrete roll becomes possible. */
+  it("exits spin after one roll's worth of stillness", () => {
+    expect(SPIN_EXIT_MS).toBe(SPRING_DURATION_MS);
   });
 });
 
@@ -554,6 +555,94 @@ describe("digit roll: old and new characters coexist during a tick", () => {
     expect(eased.filter((e) => e === BLUR_EASING).length).toBe(
       eased.filter((e) => e === SPRING_EASING).length,
     );
+  });
+});
+
+/* ── the two regimes, on the stat that has both ───────────────────────────── */
+
+describe("regimes: 120 spins, then rolls", () => {
+  /** The 3-digit stat is the last `.stats-band__value` in the band. */
+  const bigStat = () => {
+    const values = [...host!.querySelectorAll(".stats-band__value")];
+    return values[values.length - 1];
+  };
+
+  it("spins without stacking layers — no ghosting while the wheel turns", async () => {
+    vi.spyOn(Element.prototype, "animate").mockImplementation(
+      () =>
+        ({
+          finished: new Promise(() => {}),
+          cancel() {},
+          commitStyles() {},
+        }) as unknown as Animation,
+    );
+    await mount();
+    await act(async () => {
+      observers.forEach((fire) => fire(true));
+    });
+    // 300ms in: the spin phase runs 0-600ms.
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    for (const slot of bigStat().querySelectorAll(".stats-band__slot")) {
+      expect(slot.querySelectorAll(".stats-band__char")).toHaveLength(1);
+    }
+  });
+
+  it("marks spinning digits with the spin state", async () => {
+    await mount();
+    await act(async () => {
+      observers.forEach((fire) => fire(true));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    const states = [...bigStat().querySelectorAll(".stats-band__char")].map(
+      (c) => c.getAttribute("data-state"),
+    );
+    expect(states).toContain("spin");
+  });
+
+  /* The landing is a real roll, not a continuation of the spin — this is the
+     "clunks home" half, and it is what the whole tail exists to buy. */
+  it("stacks layers again once it reaches the crafted tail", async () => {
+    vi.spyOn(Element.prototype, "animate").mockImplementation(
+      () =>
+        ({
+          finished: new Promise(() => {}),
+          cancel() {},
+          commitStyles() {},
+        }) as unknown as Animation,
+    );
+    await mount();
+    await act(async () => {
+      observers.forEach((fire) => fire(true));
+    });
+    // Past the 600ms spin, into the 118 -> 119 -> 120 tail.
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    const stacked = [...bigStat().querySelectorAll(".stats-band__slot")].filter(
+      (s) => s.querySelectorAll(".stats-band__char").length > 1,
+    );
+    expect(stacked.length).toBeGreaterThan(0);
+  });
+
+  it("leaves nothing spinning once it has landed", async () => {
+    await mount();
+    await act(async () => {
+      observers.forEach((fire) => fire(true));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    for (const char of host!.querySelectorAll(".stats-band__char")) {
+      expect(char.getAttribute("data-state")).not.toBe("spin");
+    }
   });
 });
 

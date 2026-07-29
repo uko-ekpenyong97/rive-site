@@ -12,13 +12,15 @@ import {
   BLUR_EASING,
   COUNT_STAGGER_MS,
   MAX_LAYERS,
+  SPIN_EXIT_MS,
   SPRING_DURATION_MS,
   SPRING_EASING,
   STAGGER_MS,
   blurFrame,
+  countPlan,
   delayFor,
+  spinValueAt,
   springFrame,
-  tickSchedule,
 } from "./statsBandMotion";
 import "./StatsBand.css";
 
@@ -63,6 +65,8 @@ interface SlotProps {
   index: number;
   revealed: boolean;
   reducedMotion: boolean;
+  /** The count is in its continuous phase; digits changing fast should spin. */
+  spinning: boolean;
   /** Suffixes are wider than a digit, so they size to their own content. */
   suffix?: boolean;
 }
@@ -70,36 +74,49 @@ interface SlotProps {
 /**
  * One character cell, rendered as a stack of character layers.
  *
- * IDENTITY IS THE CHARACTER, NOT THE SLOT, and that is the whole design. Reusing
- * one element and mutating its text means the only endpoint it can ever be
- * retargeted to is `settled` — the place it already is — so an interrupted roll
- * converges instead of rolling. Measured: every roll after the first travelled
- * 0.3px, then 0.0px, with opacity pinned at 1. The animation quietly deletes
- * itself while every test still passes.
+ * TWO REGIMES. While the count is spinning, a digit that keeps changing holds a
+ * SPIN state — blurred, slightly dimmed, character swapped in place, ONE layer,
+ * no roll choreography. That is the "wheel too fast to read" look, and it is
+ * what makes speed feel continuous. Once a digit holds the same character for a
+ * roll's worth of time it resolves out of spin, and every change after that is a
+ * full crafted roll. The hierarchy falls out of this for free: on 120 the ones
+ * digit spins nearly the whole way, the tens resolves earlier, and the hundreds
+ * never spins at all — it appears once and stays.
  *
- * With a layer per value, an arriving character animates `incoming → settled`
- * and is never interrupted, while the character it replaces is retargeted from
- * wherever it actually is to `outgoing`. Handoff snap measured at 0.0000
- * opacity / 0.000px / 0.000px across every cadence.
+ * IDENTITY IS THE CHARACTER, NOT THE SLOT, for the roll regime. Reusing one
+ * element and mutating its text means the only endpoint it can be retargeted to
+ * is `settled` — the place it already is — so an interrupted roll converges
+ * instead of rolling. Measured: every roll after the first travelled 0.3px, then
+ * 0.0px, opacity pinned at 1. With a layer per value, the arriving character
+ * animates uninterrupted while the one it replaces is retargeted from wherever
+ * it actually is. Handoff snap measured 0.0000 / 0.000px / 0.000px.
  *
  * The slot is deliberately NOT `overflow: hidden`: the blur has to breathe past
  * the cell, and clipping it turns a soft roll into a hard-edged wipe.
  */
-function Slot({ char, index, revealed, reducedMotion, suffix }: SlotProps) {
+function Slot({
+  char,
+  index,
+  revealed,
+  reducedMotion,
+  spinning,
+  suffix,
+}: SlotProps) {
   const [layers, setLayers] = useState<Layer[]>(() => [{ id: 0, char }]);
   const nodes = useRef(new Map<number, HTMLSpanElement>());
   const running = useRef(new Map<number, Animation[]>());
-  const arrived = useRef(new Set<number>());
   const leaving = useRef(new Set<number>());
   const nextId = useRef(1);
   const previous = useRef(char);
   const hasRevealed = useRef(false);
+  const inSpin = useRef(false);
+  const spinExit = useRef<number | undefined>(undefined);
+  /* A slot that appears mid-count is a new decimal place, not a value change. */
+  const mountedMidCount = useRef(false);
 
   const register = useCallback((id: number, el: HTMLSpanElement | null) => {
     if (el) nodes.current.set(id, el);
     else {
-      /* Unmounted — drop its animations so a stale `finished` cannot fire at a
-         layer that no longer exists. */
       running.current.get(id)?.forEach((a) => a.cancel());
       running.current.delete(id);
       nodes.current.delete(id);
@@ -121,14 +138,51 @@ function Slot({ char, index, revealed, reducedMotion, suffix }: SlotProps) {
     const reduce =
       reducedMotion ||
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || revealed || hasRevealed.current) {
-      delete el.dataset.state;
+    if (reduce || revealed || hasRevealed.current || mountedMidCount.current) {
+      if (el.dataset.state === "hidden") delete el.dataset.state;
       return;
     }
     el.dataset.state = "hidden";
   }, [reducedMotion, revealed, layers]);
 
-  /* A value changed: stack a new layer rather than mutating the old one. */
+  /* A leading slot appearing mid-count is a new decimal place. It arrives
+     SETTLED rather than animating in: entering from opacity 0 made 101 read as
+     "01" with a ghost leading digit for ~3 frames, which is conspicuous once
+     everything around it is steady. An odometer's hundreds wheel is simply
+     there. */
+  useBeforePaint(() => {
+    if (!revealed || hasRevealed.current) return;
+    mountedMidCount.current = true;
+    hasRevealed.current = true;
+    const el = nodes.current.get(layers[layers.length - 1]?.id);
+    if (el) delete el.dataset.state;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const leaveSpin = useCallback(() => {
+    if (!inSpin.current) return;
+    inSpin.current = false;
+    const el = nodes.current.get(previousLayerId.current);
+    if (!el) return;
+    delete el.dataset.state;
+    /* Resolve out of spin with the same recipe a roll settles with — the drum
+       coming to rest rather than a cut to sharp. */
+    el.animate([springFrame("settled")], {
+      duration: SPRING_DURATION_MS,
+      easing: SPRING_EASING,
+      fill: "both",
+    });
+    el.animate([blurFrame("settled")], {
+      duration: SPRING_DURATION_MS,
+      easing: BLUR_EASING,
+      fill: "both",
+    });
+  }, []);
+
+  const previousLayerId = useRef(0);
+  previousLayerId.current = layers[layers.length - 1]?.id ?? 0;
+
+  /* A value changed. */
   useEffect(() => {
     if (previous.current === char) return;
     previous.current = char;
@@ -137,11 +191,49 @@ function Slot({ char, index, revealed, reducedMotion, suffix }: SlotProps) {
       setLayers([{ id: nextId.current++, char }]);
       return;
     }
+
+    if (spinning) {
+      /* SPIN: swap the character IN PLACE on the newest layer. The rendered
+         text comes from layer state, not from the prop, so this replace is what
+         actually turns the wheel — without it the slot holds a stale glyph and
+         only ever repaints when the digit COUNT changes. No layer spawns, so
+         nothing can ghost or stack while it is turning. */
+      setLayers((prev) => {
+        const next = prev.slice(-1);
+        return [{ ...next[0], char }];
+      });
+      const el = nodes.current.get(previousLayerId.current);
+      if (el) {
+        running.current.get(previousLayerId.current)?.forEach((a) => a.cancel());
+        /* Also clear anything not in `running` — a spin-exit resolve that is
+           still in flight when the wheel picks up again. Optional-called: not
+           every environment implements getAnimations. */
+        el.getAnimations?.().forEach((a) => a.cancel());
+        el.dataset.state = "spin";
+        inSpin.current = true;
+      }
+      window.clearTimeout(spinExit.current);
+      spinExit.current = window.setTimeout(leaveSpin, SPIN_EXIT_MS);
+      return;
+    }
+
+    /* ROLL: stack a new layer rather than mutating the old one. */
     setLayers((prev) => {
       const next = [...prev, { id: nextId.current++, char }];
-      return next.length > MAX_LAYERS ? next.slice(next.length - MAX_LAYERS) : next;
+      return next.length > MAX_LAYERS
+        ? next.slice(next.length - MAX_LAYERS)
+        : next;
     });
-  }, [char, reducedMotion]);
+  }, [char, reducedMotion, spinning, leaveSpin]);
+
+  /* Leaving the spin phase entirely resolves whatever is still spinning. */
+  useEffect(() => {
+    if (spinning) return;
+    window.clearTimeout(spinExit.current);
+    leaveSpin();
+  }, [spinning, leaveSpin]);
+
+  useEffect(() => () => window.clearTimeout(spinExit.current), []);
 
   /* Drive whatever the current layer stack implies: the newest arrives, and
      anything behind it leaves. */
@@ -150,13 +242,10 @@ function Slot({ char, index, revealed, reducedMotion, suffix }: SlotProps) {
     const stagger = hasRevealed.current ? COUNT_STAGGER_MS : STAGGER_MS;
 
     const newest = layers[layers.length - 1];
-    if (newest && !arrived.current.has(newest.id)) {
+    if (newest && !running.current.has(newest.id) && !inSpin.current) {
       const el = nodes.current.get(newest.id);
-      /* The very first layer waits for the band to scroll into view; every
-         later one is already the result of a tick, so it starts at once. */
       const isFirst = !hasRevealed.current;
       if (el && (revealed || !isFirst)) {
-        arrived.current.add(newest.id);
         delete el.dataset.state;
         const options = {
           duration: SPRING_DURATION_MS,
@@ -186,26 +275,22 @@ function Slot({ char, index, revealed, reducedMotion, suffix }: SlotProps) {
       /* Retarget from where it actually is. commitStyles before cancel — the
          other order commits the base value — and commitStyles rather than a
          computed-style read because it preserves the PERCENTAGE. A baked matrix
-         is in px against the current cell height, and this font-size is a
-         clamp(), so a resize would strand the digit (measured 8.25px out, 41%
-         of a cell). The inline style it writes needs no cleanup: it only ever
-         lands on a node that is about to be removed. */
-      const previousAnimations = running.current.get(layer.id) ?? [];
-      for (const animation of previousAnimations) {
+         is px against the current cell height, and this font-size is a clamp(),
+         so a resize would strand the digit (measured 8.25px out, 41% of a
+         cell). The inline style needs no cleanup: it only ever lands on a node
+         that is about to be removed. */
+      for (const animation of running.current.get(layer.id) ?? []) {
         if (el.isConnected) {
           try {
             animation.commitStyles();
           } catch {
-            /* Not rendered — nothing to commit, the frames below still apply. */
+            /* Not rendered — nothing to commit; the frames below still apply. */
           }
         }
         animation.cancel();
       }
 
-      const options = {
-        duration: SPRING_DURATION_MS,
-        fill: "both" as const,
-      };
+      const options = { duration: SPRING_DURATION_MS, fill: "both" as const };
       const out = el.animate([springFrame("outgoing")], {
         ...options,
         easing: SPRING_EASING,
@@ -213,10 +298,10 @@ function Slot({ char, index, revealed, reducedMotion, suffix }: SlotProps) {
       el.animate([blurFrame("outgoing")], { ...options, easing: BLUR_EASING });
       running.current.set(layer.id, [out]);
 
-      out.finished
-        .then(() => setLayers((prev) => prev.filter((l) => l.id !== layer.id)))
-        /* cancel() rejects `finished` with AbortError; retire the layer anyway. */
-        .catch(() => setLayers((prev) => prev.filter((l) => l.id !== layer.id)));
+      const retire = () =>
+        setLayers((prev) => prev.filter((l) => l.id !== layer.id));
+      /* cancel() rejects `finished` with AbortError; retire the layer anyway. */
+      out.finished.then(retire).catch(retire);
     }
   }, [layers, revealed, reducedMotion, index]);
 
@@ -256,15 +341,17 @@ function Slot({ char, index, revealed, reducedMotion, suffix }: SlotProps) {
 /* ── the count ────────────────────────────────────────────────────────────── */
 
 /**
- * Ticks 0 → target through a decelerating schedule of integers.
+ * Spins 0 → target as a continuous value, then clunks home through a tail of
+ * crafted rolls.
  *
  * The value starts AT the target so the markup carries the real number for
  * anyone without JS, then drops to 0 before the first paint when there is
- * motion to play. Same trick as the hidden state: nothing false is ever
- * rendered into HTML, and nothing flashes on screen.
+ * motion to play — nothing false is ever rendered into HTML, and nothing
+ * flashes on screen.
  */
 function useCount(target: number, revealed: boolean, reducedMotion: boolean) {
   const [value, setValue] = useState(target);
+  const [spinning, setSpinning] = useState(false);
 
   useBeforePaint(() => {
     if (revealed) return;
@@ -276,20 +363,48 @@ function useCount(target: number, revealed: boolean, reducedMotion: boolean) {
     if (!revealed) return;
     if (reducedMotion) {
       setValue(target);
+      setSpinning(false);
       return;
     }
-    const { values, times } = tickSchedule(target);
-    setValue(values[0]);
-    /* setTimeout against an absolute deadline, not a rAF poll: the ramp step at
-       ten ticks is 8.9ms, smaller than a frame, so polling would reorder the
-       observed dwells even though the schedule itself is monotone. */
-    const timers = values
-      .slice(1)
-      .map((v, i) => window.setTimeout(() => setValue(v), times[i + 1]));
-    return () => timers.forEach((t) => window.clearTimeout(t));
+
+    const plan = countPlan(target);
+    setValue(0);
+
+    /* The tail is scheduled against absolute deadlines rather than polled, so a
+       dropped frame cannot reorder the landing. */
+    const timers = plan.tail.map((step) =>
+      window.setTimeout(() => setValue(step.value), step.at),
+    );
+
+    if (!plan.spin) {
+      setSpinning(false);
+      return () => timers.forEach((t) => window.clearTimeout(t));
+    }
+
+    setSpinning(true);
+    const { to, duration } = plan.spin;
+    let raf = 0;
+    let start: number | null = null;
+    const step = (now: number) => {
+      if (start === null) start = now;
+      const elapsed = now - start;
+      if (elapsed >= duration) {
+        setValue(to);
+        setSpinning(false);
+        return;
+      }
+      setValue(spinValueAt(elapsed, to, duration));
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      timers.forEach((t) => window.clearTimeout(t));
+    };
   }, [revealed, reducedMotion, target]);
 
-  return value;
+  return { value, spinning };
 }
 
 /* ── the band ─────────────────────────────────────────────────────────────── */
@@ -329,7 +444,7 @@ function StatValue({
   revealed: boolean;
   reducedMotion: boolean;
 }) {
-  const value = useCount(stat.value, revealed, reducedMotion);
+  const { value, spinning } = useCount(stat.value, revealed, reducedMotion);
   const digits = String(value).split("");
   const width = String(stat.value).length;
 
@@ -352,16 +467,18 @@ function StatValue({
             index={i}
             revealed={revealed}
             reducedMotion={reducedMotion}
+            spinning={spinning}
           />
         ))}
       </span>
-      {/* Last in the reveal ripple. It does not re-animate per tick — its
-          character never changes. */}
+      {/* Last in the reveal ripple. It never spins and never re-animates per
+          tick — its character does not change. */}
       <Slot
         char={stat.suffix}
         index={width}
         revealed={revealed}
         reducedMotion={reducedMotion}
+        spinning={false}
         suffix
       />
     </div>
