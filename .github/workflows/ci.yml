@@ -1,0 +1,39 @@
+# Turns the render suite from tracked into enforced.
+#
+# Those assertions spent five sessions as an untracked script in .context/, so
+# "N assertions passing" was a claim nobody else could reproduce. Committing them
+# fixed the first half of that; this file fixes the second — they now run on
+# every push and every pull request, whether or not anyone remembers to.
+#
+# No deploy steps. Vercel owns deployment; this only answers "is it correct?".
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Pinned to the current LTS rather than `lts/*` so a new LTS cannot
+          # change what CI means without a commit saying so.
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Test
+        run: npm test
+
+      # Also the typecheck: `build` runs `tsc -b` before vite, and `prebuild`
+      # regenerates dist/tokens.css first — so this covers the token pipeline,
+      # strict TS (noUnusedLocals et al) and the bundle in one step.
+      - name: Build
+        run: npm run build
