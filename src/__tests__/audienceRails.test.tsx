@@ -238,26 +238,35 @@ describe("AudienceRails glyphs: mounting and artboard mapping", () => {
   /* THE MAPPING GUARD. Each rail must get its own craft's drawing — the whole
      argument of the section is that the pen tool belongs to the designer, the
      timeline to the animator, the state machine to the developer. Pair each rail
-     by its visible marker text with the artboard its canvas asked for, so a
-     reordering cannot silently land the Designer glyph on the Developer rail. */
+     by its visible marker text with BOTH the artboard and the file its canvas
+     asked for, so a reordering cannot silently land the Designer glyph on the
+     Developer rail.
+
+     The src half of this triple is new. It exists because the section shipped
+     broken without it: three canvases pointed at one file that contained a
+     single artboard, and nothing in this suite could tell, because the Rive
+     runtime is mocked and a mock agrees with any artboard name you hand it.
+     This pins the config to itself; scripts/check-riv-assets.mjs pins the config
+     to the committed bytes. Neither is sufficient alone. */
   it.each([
-    ["01 — DESIGNERS", "GlyphDesigner"],
-    ["02 — ANIMATORS", "GlyphAnimator"],
-    ["03 — DEVELOPERS", "GlyphDeveloper"],
-  ])("rail %s draws %s", async (marker, artboard) => {
+    ["01 — DESIGNERS", "GlyphDesigner", "glyph_designer"],
+    ["02 — ANIMATORS", "GlyphAnimator", "glyph_animator"],
+    ["03 — DEVELOPERS", "GlyphDeveloper", "glyph_developer"],
+  ])("rail %s draws %s from %s.riv", async (marker, artboard, file) => {
     await mountRails();
     await approach();
 
-    const rail = [...host!.querySelectorAll(".audience-rails__rail")].find((el) =>
-      el.textContent?.includes(marker),
-    );
+    const rails = [...host!.querySelectorAll(".audience-rails__rail")];
+    const rail = rails.find((el) => el.textContent?.includes(marker));
     expect(rail, `rail ${marker} not found`).toBeTruthy();
 
     /* Position of this rail among the rails === position of its canvas among the
        mounted artboards, because each rail mounts exactly one. */
-    const rails = [...host!.querySelectorAll(".audience-rails__rail")];
     const index = rails.indexOf(rail!);
     expect(fake.state.order[index]).toBe(artboard);
+
+    const src = String(fake.state.byArtboard.get(artboard)!.opts.src);
+    expect(src).toContain(file);
   });
 
   it("all three artboards are distinct (no rail doubles up)", async () => {
@@ -267,13 +276,17 @@ describe("AudienceRails glyphs: mounting and artboard mapping", () => {
     expect([...fake.state.order].sort()).toEqual([...GLYPHS].sort());
   });
 
-  it("every canvas loads the one shared .riv", async () => {
+  /* One file per glyph. The single-file, artboard-switched arrangement is the
+     one that failed — an artboard missing from a shared file is invisible,
+     whereas a missing file is a 404. */
+  it("every glyph loads its own file, never a shared one", async () => {
     await mountRails();
     await approach();
-    for (const artboard of GLYPHS) {
-      const src = String(fake.state.byArtboard.get(artboard)!.opts.src);
-      expect(src).toContain("audience_glyphs");
-    }
+    const srcs = GLYPHS.map((a) =>
+      String(fake.state.byArtboard.get(a)!.opts.src),
+    );
+    expect(new Set(srcs).size).toBe(3);
+    for (const src of srcs) expect(src).not.toContain("audience_glyphs");
   });
 });
 
@@ -592,9 +605,9 @@ describe("AudienceRails glyphs are NOT heroes", () => {
     }
   });
 
-  it("audience_glyphs.riv is not registered as any use case's hero", () => {
+  it("no glyph .riv is registered as any use case's hero", () => {
     for (const hero of rivHeroes()) {
-      expect(hero.src).not.toContain("audience_glyphs");
+      expect(hero.src).not.toMatch(/glyph_|audience_glyphs/);
     }
   });
 

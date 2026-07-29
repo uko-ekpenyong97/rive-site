@@ -13,7 +13,10 @@
     "connect:parse": "figma connect parse",
     "connect:publish": "figma connect publish",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "probe:riv": "node scripts/probe-riv.mjs",
+    "check:assets": "node scripts/check-riv-assets.mjs",
+    "check:render": "node scripts/render-check.mjs"
   },
   "dependencies": {
     "@rive-app/react-webgl2": "^4.30.0",

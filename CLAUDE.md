@@ -99,6 +99,15 @@ This project is on a Figma **Professional** plan, so live Code Connect in Dev Mo
 - Prefer assets served by the Figma MCP; if it returns a localhost source, use it directly and do not create placeholders.
 - Do not install new icon packages without reason — check what's already in the payload/repo first.
 
+## Rive assets
+
+- IMPORTANT: **The MCP maps the open editor session; the probe maps committed bytes. Integration truth comes from the artifact — probe the committed file even when the MCP is available, and never mark a map CONFIRMED against editor state alone.**
+  - This is law because it has already cost us a shipped section. See `docs/specs/audiencerails-glyphs-spec.md` §11, "Only the Developer glyph rendered": the MCP correctly reported three artboards in the open editor while the exported file contained one, two canvases failed to load, and the render-nothing fallback hid it. The `CONFIRMED MAP` comment accurately described the editor and was still wrong about what shipped.
+  - `npm run probe:riv <file.riv>` reads a committed `.riv` — artboards, sizes, state machines, view models, timeline durations — with no browser and no canvas.
+  - `npm run check:assets` asserts every `.riv`↔config pair in the repo against the committed bytes, and runs in CI. Nothing else in the build can see a config/asset divergence: `tsc -b` never reads a `.riv`, `vite build` only copies bytes, and the Vitest suite mocks the Rive runtime — a mock agrees with whatever artboard name the config claims.
+- Prefer **one artboard per file** for multi-instance surfaces. A missing artboard inside a shared file is invisible; a missing file is a 404.
+- Record `bytes` for every `.riv` in its config. The hover-preload policy reads it, and `shouldPreloadHero` treats a missing value as 0 — so an unmeasured file is optimistically preloaded.
+
 ## Motion
 
 - Motion values are tuning knobs, exposed as CSS custom properties or config objects at the top of the owning file (e.g. `--marquee-duration`, `--logo-gap`, `--stack-stagger`, `--stack-travel`, `DotField`'s `CONFIG`). Calibrate by feel, then bake the defaults.

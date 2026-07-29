@@ -2,6 +2,9 @@ import { useState } from "react";
 import SectionHeader from "./SectionHeader";
 import { AudienceGlyph, type GlyphArtboard } from "./AudienceGlyph";
 import { usePrefersReducedMotion } from "./UseCaseModal/usePrefersReducedMotion";
+import glyphDesignerUrl from "../assets/rive/glyph_designer.riv?url";
+import glyphAnimatorUrl from "../assets/rive/glyph_animator.riv?url";
+import glyphDeveloperUrl from "../assets/rive/glyph_developer.riv?url";
 import "./AudienceRails.css";
 
 interface Rail {
@@ -10,12 +13,74 @@ interface Rail {
   body: string;
   cta: string;
   href: string;
-  /* Which artboard in audience_glyphs.riv draws this craft. The pairing is the
-     whole point — the designer's rail gets the pen tool, the animator's gets the
-     timeline, the developer's gets the state machine — so it is asserted in the
-     smoke suite rather than left to reading order. */
-  glyph: GlyphArtboard;
+  /* One file per glyph. See the confirmed maps below for why this is three
+     files and not one artboard-switched file. */
+  src: string;
+  artboard: GlyphArtboard;
+  /** Recorded for the preload policy, as every .riv in this repo is. */
+  bytes: number;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+ * CONFIRMED MAP — glyph_designer.riv / GlyphDesigner / Glyph_SM
+ *
+ * Read with the runtime probe (`node scripts/probe-riv.mjs`) against the
+ * COMMITTED BYTES, not the editor. Nothing here is inferred from names.
+ *
+ * Artboard       GlyphDesigner    240 × 200   (sole artboard in the file)
+ * StateMachine   Glyph_SM
+ * ViewModel      GlyphVM — accentColor:color, hover:boolean, strokeColor:color
+ *                one instance, "Instance"
+ * Timelines      Idle_Loop        9s (540 frames @ 60fps) — spec §6
+ *                Rest             1 frame — the reduced-motion pose
+ *                Handles_Idle     1 frame ┐ the second SM layer's poses,
+ *                Handles_Hover    1 frame ┘ spec §3.1's +2 handle enlargement
+ * bytes          5,930
+ *
+ * HOUSE RULE — CARRIED OVER: the zero-Any-State audit was measured over the
+ * MCP during the authoring session, when all three glyphs shared one editor
+ * file. The probe re-verifies structure (artboard, state machine, view model,
+ * timeline durations) but cannot read transition topology, so the audit itself
+ * is inherited rather than re-measured. The durations matching spec §6 exactly
+ * is the evidence that this is the same authored artboard, not a redraw.
+ * ────────────────────────────────────────────────────────────────────── */
+
+/* ──────────────────────────────────────────────────────────────────────
+ * CONFIRMED MAP — glyph_animator.riv / GlyphAnimator / Glyph_SM
+ *
+ * Read with the runtime probe against the committed bytes (not the editor).
+ *
+ * Artboard       GlyphAnimator    240 × 200   (sole artboard in the file)
+ * StateMachine   Glyph_SM
+ * ViewModel      GlyphVM — accentColor:color, hover:boolean, strokeColor:color
+ *                one instance, "Instance"
+ * Timelines      Idle_Loop        11s (660 frames @ 60fps) — spec §6
+ *                Rest             1 frame — the reduced-motion pose
+ * bytes          2,676
+ *
+ * HOUSE RULE — CARRIED OVER: as above; structure re-verified by probe,
+ * transition topology inherited from the authoring session's MCP audit.
+ * ────────────────────────────────────────────────────────────────────── */
+
+/* ──────────────────────────────────────────────────────────────────────
+ * CONFIRMED MAP — glyph_developer.riv / GlyphDeveloper / Glyph_SM
+ *
+ * Read with the runtime probe against the committed bytes (not the editor).
+ *
+ * Artboard       GlyphDeveloper   240 × 200   (sole artboard in the file)
+ * StateMachine   Glyph_SM
+ * ViewModel      GlyphVM — accentColor:color, hover:boolean, strokeColor:color
+ *                one instance, "Instance"
+ * Timelines      Idle_Loop        13s (780 frames @ 60fps) — spec §6
+ *                Rest             1 frame — the reduced-motion pose
+ * bytes          4,299
+ *
+ * PROVENANCE NOTE: this file is byte-identical (sha256 650dc8b0…) to the
+ * `audience_glyphs.riv` that shipped briefly and rendered only one glyph. That
+ * file was never a three-artboard export — it was always this one. See spec §11.
+ *
+ * HOUSE RULE — CARRIED OVER: as above.
+ * ────────────────────────────────────────────────────────────────────── */
 
 /* Copy discipline (spec §1): heading plus at most two lines per rail. The glyph
    carries the feel; the text carries the offer. */
@@ -26,7 +91,9 @@ const RAILS: Rail[] = [
     body: "The pen tool and components you know — plus state machines you build visually, not in code.",
     cta: "Explore the editor →",
     href: "https://editor.rive.app",
-    glyph: "GlyphDesigner",
+    src: glyphDesignerUrl,
+    artboard: "GlyphDesigner",
+    bytes: 5_930,
   },
   {
     marker: "02 — ANIMATORS",
@@ -34,7 +101,9 @@ const RAILS: Rail[] = [
     body: "Timelines, keyframes, and easing you already know — except the output ships interactive.",
     cta: "See animation tools →",
     href: "#",
-    glyph: "GlyphAnimator",
+    src: glyphAnimatorUrl,
+    artboard: "GlyphAnimator",
+    bytes: 2_676,
   },
   {
     marker: "03 — DEVELOPERS",
@@ -42,7 +111,9 @@ const RAILS: Rail[] = [
     body: "Open-source runtimes everywhere. Data binding is the contract — bind in code, design keeps moving.",
     cta: "Read the docs →",
     href: "https://rive.app/docs",
-    glyph: "GlyphDeveloper",
+    src: glyphDeveloperUrl,
+    artboard: "GlyphDeveloper",
+    bytes: 4_299,
   },
 ];
 
@@ -75,7 +146,8 @@ export function AudienceRails() {
             }
           >
             <AudienceGlyph
-              artboard={rail.glyph}
+              src={rail.src}
+              artboard={rail.artboard}
               hovered={hovered === rail.marker}
               reducedMotion={reducedMotion}
             />

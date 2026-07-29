@@ -57,7 +57,7 @@ The glyphs are supporting cast, not heroes: quiet infinite loops on desynchroniz
 
 ## 4. Rive file architecture
 
-- **One file:** `audience_glyphs.riv`. Three artboards: `GlyphDesigner`, `GlyphAnimator`, `GlyphDeveloper`.
+- **~~One file:~~ SUPERSEDED — three files, one artboard each:** `glyph_designer.riv`, `glyph_animator.riv`, `glyph_developer.riv`. The one-file plan shipped broken (the export held a single artboard while the editor held three) and was replaced. See the §11 entry "Only the Developer glyph rendered". Artboard names are unchanged: `GlyphDesigner`, `GlyphAnimator`, `GlyphDeveloper`.
 - **Shared components** as nested artboards where reuse is real (payload dot with its subtle scale-breathe; anchor square; node circle with active-ring animation). Don't force sharing where drawings diverge.
 - **State machines:** one per artboard, named `Glyph_SM`, default.
 - **States:** `Idle_Loop` (the main loop) and `Hover_Loop` (same timeline at ×1.5 speed — duplicate timeline or speed-differentiated state). Transitions gated on **ViewModel comparison** (`GlyphVM.hover == true/false`) with 250ms cross-blend both directions.
@@ -128,7 +128,7 @@ Desynchronized primes-ish durations = the section shimmers without ever visibly 
 ## 11. Decision log
 
 - **Glyph authoring → in-house, one file, three artboards, theme by view-model** (2026-07-28). The glyphs are our own drawing rather than a marketplace file, so there is nothing to credit and nothing licensed — which is exactly what lets them be `aria-hidden` decoration instead of a hero with a provenance chip. Colours bind to `GlyphVM.strokeColor` / `accentColor` and are written from resolved tokens at mount, the same shape the Automotive `DashboardVM` uses.
-  - **As built:** `audience_glyphs.riv`, 4,299 bytes, sha256 `650dc8b0…`. Artboards `GlyphDeveloper` / `GlyphAnimator` / `GlyphDesigner`, all 240 × 200, each carrying `Glyph_SM`.
+  - **As built (corrected 2026-07-28):** three files, one artboard each — `glyph_designer.riv` (5,930 B, `GlyphDesigner`, 9s), `glyph_animator.riv` (2,676 B, `GlyphAnimator`, 11s), `glyph_developer.riv` (4,299 B, `GlyphDeveloper`, 13s). All 240 × 200, each carrying `Glyph_SM`. The original single-file claim here was wrong and is corrected below.
   - **House rule verified:** zero transitions out of the Any State across all four layers; every sustained state exits on a `GlyphVM.hover` comparison at 250 ms in both directions. Map read live from the editor over the Rive MCP, not inferred from names.
   - **Why the write is load-bearing:** the file ships theme-agnostic on purpose, so skipping it does not degrade gracefully — it renders the baked `#8A8F98` / `#FFA41C` defaults and silently stops tracking the token system.
 
@@ -157,6 +157,15 @@ Desynchronized primes-ish durations = the section shimmers without ever visibly 
   - **As built:** ported to Vitest under `src/__tests__/`, run with `npm test`. The original spun up its own Vite dev server and called `ssrLoadModule`; Vitest already *is* the Vite pipeline, so that scaffolding is gone and the modules import directly.
   - **Caveat recorded in code:** `useCaseContent.ts` claimed the pending variant was "exercised by the smoke suite" while pointing at nothing tracked. It now names the test file, and records that the claim used to be unverifiable.
   - The glyphs are guarded as **not heroes**: their artboards are asserted disjoint from the five shipped hero artboards, and the five-hero regression block is explicitly off-limits to them.
+
+- **Only the Developer glyph rendered → the map was verified against the editor, not the artifact** (2026-07-28). The section shipped with two of three glyphs missing. `audience_glyphs.riv` (4,299 B, sha256 `650dc8b0…`) was **byte-identical to what is now `glyph_developer.riv`** and contained exactly one artboard. It was never a three-artboard export.
+  - **Root cause:** the Rive MCP maps the *open editor session*, not bytes on disk. It truthfully reported three artboards — in the editor. The 15:37 export held one; the other two glyphs were not exported until 17:25, nearly two hours after the integration was mapped and wired. Designer and Animator requested artboards that did not exist in the file, failed to load, and §7's render-nothing rule hid both.
+  - **Why nothing caught it:** `tsc -b` never reads a `.riv`; `vite build` only copies bytes; and all 361 tests mock the Rive runtime, so the mock agreed with whatever artboard name the config claimed. The suite was *structurally* incapable of detecting a config/asset divergence.
+  - **The uncomfortable part:** the `CONFIRMED MAP` block said "Read from the live file via the Rive MCP." That sentence was true and still wrong — the documented provenance was itself the defect. A map is only confirmed against the thing that ships.
+  - **Architecture change:** one artboard per file. A missing artboard inside a shared file is invisible; a missing file is a 404. The failure mode is now structural rather than silent.
+  - **As built:** `scripts/probe-riv.mjs` reads committed bytes with the low-level runtime (no browser, no canvas — it enumerates without rendering, which is what makes it CI-cheap). `scripts/check-riv-assets.mjs` asserts **every** `.riv`↔config pair in the repo — the five modal heroes against `useCaseContent.ts` and the three glyphs against `RAILS` — because the editor≠artifact gap applies identically to every hero already shipped. It parses configs out of source rather than duplicating them, and hard-fails if it does not find the expected counts, since a checker that quietly verifies nothing is worse than none. It also fails on any committed `.riv` that nothing imports.
+  - **Also added:** a dev-only `console.warn` on glyph load failure (the silent fallback is a decision for visitors, not for us), and `scripts/render-check.mjs`, a headless Chrome pass asserting three canvases with non-empty backing stores — so "renders nothing" is a verified-absent state rather than an unobserved one.
+  - **Verified by mutation:** pointing the designer rail at an artboard its file lacks fails all three guards. `check-riv-assets` names the file and the miss, five Vitest guards go red, and `render-check` reports "found 2 glyph hosts" — the exact symptom that shipped.
 
 - **`AudienceGlyph` inherits AudienceRails' pre-existing `/showcase` + `.figma.tsx` gap → accepted** (2026-07-28). Glyph timing lives in the `.riv`, so a showcase slot adds no tuning surface; Code Connect publishing remains blocked on an org seat repo-wide.
   - Recorded rather than left unsaid: `AudienceRails` never had either, so this inherits the gap instead of creating one — but CLAUDE.md does require both, and an unspoken exception is worse than a logged one.

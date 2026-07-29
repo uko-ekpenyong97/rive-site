@@ -1,61 +1,35 @@
 import { useEffect, useRef, useState } from "react";
 /* WebGL2 build — the same runtime LoopCanvas and RiveHero already pull into the
  * Home entry chunk. These three canvases therefore add no runtime weight at all,
- * only the 4.3 kB of .riv they fetch between them. */
+ * only the ~12.9 kB of .riv they fetch between them. */
 import { useRive } from "@rive-app/react-webgl2";
-import glyphsRivUrl from "../assets/rive/audience_glyphs.riv?url";
 import "./AudienceGlyph.css";
 
 /* ──────────────────────────────────────────────────────────────────────
- * CONFIRMED MAP — audience_glyphs.riv  (three artboards, one contract)
+ * The per-file CONFIRMED MAP blocks live in AudienceRails.tsx, above the RAILS
+ * table — the house pattern puts a map next to the config that selects it, and
+ * the src/artboard pairing is chosen there. What follows is the part of the
+ * contract this component has to obey at the point of use.
  *
- * Read from the live file via the Rive MCP on 2026-07-28 with the file open in
- * the editor. Nothing here is inferred from names.
+ * ONE FILE PER GLYPH. Originally one three-artboard file, which is how this
+ * section shipped broken: the export on disk contained a single artboard while
+ * the editor held three, two canvases failed to load, and the render-nothing
+ * fallback hid it. Three files make the failure mode structural — a file either
+ * has its one artboard or it does not, and scripts/check-riv-assets.mjs proves
+ * it against the committed bytes on every CI run. See spec §11.
  *
- * ONE BLOCK, NOT THREE: the house format is one block per artboard, but all
- * three implement an identical contract — same state-machine name, same view
- * model, same transition shape — and differ only in loop duration and cast. The
- * per-artboard rows below record strictly more than three near-identical blocks
- * would, so this is one table instead.
- *
- * Artboard       GlyphDeveloper (0-2) · GlyphAnimator (0-577) · GlyphDesigner (0-957)
- *                all 240 × 200
- * StateMachine   Glyph_SM on each, isDefault. Developer and Animator have one
- *                layer; Designer has two (Layer 1 + "Handles", the +2 handle
- *                enlargement from spec §3.1).
- * Legacy inputs  NONE — `inputs: []` on all three. Hover is a VIEW-MODEL
- *                property, not a state-machine input, so driving it through
- *                stateMachineInput("hover") would silently no-op.
- * ViewModel      GlyphVM (0-285), one instance "Instance" (0-286)
- *                  hover        boolean  default false
- *                  strokeColor  color    default #8A8F98  (ARGB 4287270808)
- *                  accentColor  color    default #FFA41C  (ARGB 4294943772)
- * Timelines      Idle_Loop  Developer 13s · Animator 11s · Designer 9s (spec §6)
- *                Rest       1 frame (0.0167s) on each — the reduced-motion pose
- *                Designer also carries Handles_Idle / Handles_Hover, 1 frame each
- *
- * HOVER IS A BLEND, NOT A SECOND TIMELINE: `Hover_Loop` is a *state* pointing at
- * the same Idle_Loop animation at a differentiated speed — spec §4 explicitly
- * permits this ("duplicate timeline or speed-differentiated state"). There is no
- * Hover_Loop *animation* to play by name; only the state exists.
- *
- * REST IS NOT A STATE: `Rest` is a linear animation and is deliberately absent
- * from Glyph_SM. The reduced-motion path therefore instantiates with
+ * REST IS NOT A STATE: `Rest` is a linear animation deliberately absent from
+ * Glyph_SM. The reduced-motion path therefore instantiates with
  * `animations: "Rest"` and NOT `stateMachines` — naming the machine would start
- * Idle_Loop, which is the exact thing reduced motion is here to prevent.
+ * Idle_Loop, the exact thing reduced motion is here to prevent.
  *
- * Listeners      NONE in-file (spec §4). The rail is the hover surface and is far
- *                larger than the canvas, so hover is detected in code and written
- *                to GlyphVM.hover. An in-file listener would only ever see the
- *                canvas hitbox — the wrong surface.
- * Events         NONE. Nothing for code to subscribe to; the contract stays minimal.
+ * HOVER IS A VIEW-MODEL PROPERTY, NOT A STATE-MACHINE INPUT. Every file reports
+ * no legacy inputs, so `stateMachineInput("hover")` would compile, run, and
+ * silently do nothing. It is written through GlyphVM.
  *
- * HOUSE RULE — MEASURED: fully compliant. Zero transitions out of the Any State
- * across all four layers (the Any State *nodes* exist because Rive creates one
- * per layer, but nothing leaves them: every transition's fromState is Entry or a
- * real animation state). Every sustained state exits on a GlyphVM.hover
- * comparison at 250ms in both directions, so releasing hover blends mid-loop
- * rather than snapping back to the start. The .riv was NOT modified.
+ * NO LISTENERS, NO EVENTS in any file (spec §4). The rail is the hover surface
+ * and is far larger than the canvas, so hover is detected in code; an in-file
+ * listener would only ever see the canvas hitbox — the wrong surface.
  * ────────────────────────────────────────────────────────────────────── */
 
 export type GlyphArtboard = "GlyphDesigner" | "GlyphAnimator" | "GlyphDeveloper";
@@ -115,6 +89,7 @@ function resolveGlyphTokens(): GlyphTokens | null {
 }
 
 interface GlyphCanvasProps {
+  src: string;
   artboard: GlyphArtboard;
   hovered: boolean;
   reducedMotion: boolean;
@@ -127,6 +102,7 @@ interface GlyphCanvasProps {
  * fetches on mount, so gating the fetch on approach means gating this component.
  */
 function GlyphCanvas({
+  src,
   artboard,
   hovered,
   reducedMotion,
@@ -134,7 +110,7 @@ function GlyphCanvas({
   onLoadError,
 }: GlyphCanvasProps) {
   const { rive, RiveComponent } = useRive({
-    src: glyphsRivUrl,
+    src,
     artboard,
     /* Reduced motion drives the 1-frame Rest timeline instead of the machine
        (see the map above: Rest is deliberately not a state). */
@@ -191,6 +167,8 @@ function GlyphCanvas({
 }
 
 export interface AudienceGlyphProps {
+  /** One file per glyph — see the confirmed maps in AudienceRails.tsx. */
+  src: string;
   artboard: GlyphArtboard;
   /** The RAIL is the hover surface (spec §7), so hover arrives as a prop. */
   hovered: boolean;
@@ -207,6 +185,7 @@ export interface AudienceGlyphProps {
  * rules in the modal system: nothing here is licensed or load-bearing.)
  */
 export function AudienceGlyph({
+  src,
   artboard,
   hovered,
   reducedMotion,
@@ -251,11 +230,24 @@ export function AudienceGlyph({
     <div className="audience-glyph" ref={hostRef} aria-hidden="true">
       {approached && (
         <GlyphCanvas
+          src={src}
           artboard={artboard}
           hovered={hovered}
           reducedMotion={reducedMotion}
           visible={visible}
-          onLoadError={() => setFailed(true)}
+          onLoadError={() => {
+            /* The silent fallback is a decision for VISITORS, not for us. It
+               shipped a section with two of three glyphs missing and nobody
+               could see it, because rendering nothing looks identical to
+               rendering nothing on purpose. In dev, say so out loud. Stripped
+               from production builds, where the quiet degradation is correct. */
+            if (import.meta.env.DEV) {
+              console.warn(
+                `[AudienceGlyph] ${artboard} failed to load from ${src} — the rail will render without its glyph.`,
+              );
+            }
+            setFailed(true);
+          }}
         />
       )}
     </div>

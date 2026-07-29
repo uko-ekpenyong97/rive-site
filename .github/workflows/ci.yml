@@ -32,6 +32,13 @@ jobs:
       - name: Test
         run: npm test
 
+      # The only check that reads the committed .riv bytes. tsc never opens one,
+      # vite just copies them, and the suite mocks the Rive runtime — so a config
+      # naming an artboard its file does not contain is invisible to all three.
+      # That exact divergence shipped a broken section once. See CLAUDE.md.
+      - name: Check Rive assets against their configs
+        run: npm run check:assets
+
       # Also the typecheck: `build` runs `tsc -b` before vite, and `prebuild`
       # regenerates dist/tokens.css first — so this covers the token pipeline,
       # strict TS (noUnusedLocals et al) and the bundle in one step.
