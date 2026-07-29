@@ -144,8 +144,10 @@ Desynchronized primes-ish durations = the section shimmers without ever visibly 
   - **Known file behaviour:** retained content outlives visibility, so "offscreen" is an explicit input to the canvas rather than an unmount assumption — the same rule the modal spec records for "closed".
 
 - **Copy trimmed to heading + two lines; the animator rail loses its size claim** (2026-07-28). Each rail now carries the offer and nothing else, per §1.
-  - **As built:** designers — "The pen tool and components you know, plus state machines you build visually — no code."; animators — "Timelines, keyframes, and easing like the tools you came from — except your work stays interactive."; developers — "Open-source runtimes for every platform, and data binding is the contract between code and design."
+  - **As built:** designers — "The pen tool and components you know — plus state machines you build visually, not in code."; animators — "Timelines, keyframes, and easing you already know — except the output ships interactive."; developers — "Open-source runtimes everywhere. Data binding is the contract — bind in code, design keeps moving."
   - **Why not:** "and the files stay tiny" was cut rather than reworded — it is a performance claim on a craft rail, and StatsBand already owns the size argument. Pinned by a test so it cannot drift back.
+  - **Word choices, on the record:** "not in code" over "no code" — it says where the logic lives without echoing no-code-tool marketing. "ships interactive" over "stays interactive" — the headline is *Animate for runtime*, and shipping is the differentiator.
+  - **Caught in review:** the first trim dropped "bind in code, design keeps moving" as filler. It is the no-handoff thesis — the same argument the glyphs draw — and cutting it hollowed the rail out. Restored, and now pinned by its own test, because a copy trim that eats the thesis is the failure mode this section is most exposed to.
 
 - **`assetsInlineLimit` hardened for `.riv`** (2026-07-28). Vite's default inline threshold is 4,096 bytes and the glyph file is 4,299 — a 203-byte margin.
   - **Why:** a re-export from the editor that shrank the file would silently flip it to a base64 `data:` URL, with no warning, no build error, and only in `vite build` (the dev server never inlines). Nothing downstream would have caught it, and `.riv` files are fetched and hover-preloaded *by URL*.
@@ -155,6 +157,9 @@ Desynchronized primes-ish durations = the section shimmers without ever visibly 
   - **As built:** ported to Vitest under `src/__tests__/`, run with `npm test`. The original spun up its own Vite dev server and called `ssrLoadModule`; Vitest already *is* the Vite pipeline, so that scaffolding is gone and the modules import directly.
   - **Caveat recorded in code:** `useCaseContent.ts` claimed the pending variant was "exercised by the smoke suite" while pointing at nothing tracked. It now names the test file, and records that the claim used to be unverifiable.
   - The glyphs are guarded as **not heroes**: their artboards are asserted disjoint from the five shipped hero artboards, and the five-hero regression block is explicitly off-limits to them.
+
+- **`AudienceGlyph` inherits AudienceRails' pre-existing `/showcase` + `.figma.tsx` gap → accepted** (2026-07-28). Glyph timing lives in the `.riv`, so a showcase slot adds no tuning surface; Code Connect publishing remains blocked on an org seat repo-wide.
+  - Recorded rather than left unsaid: `AudienceRails` never had either, so this inherits the gap instead of creating one — but CLAUDE.md does require both, and an unspoken exception is worse than a logged one.
 
 - **One `CONFIRMED MAP` block, not three** (2026-07-28). The house format is one block per artboard, but all three glyph artboards implement an identical contract and differ only in loop duration and cast.
   - **Why:** a single per-artboard table records strictly more than three near-identical blocks would. The deviation is stated inside the block itself rather than left for a reader to discover.

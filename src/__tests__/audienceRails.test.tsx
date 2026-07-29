@@ -531,6 +531,31 @@ describe("AudienceRails copy: X-card discipline (spec §1)", () => {
     expect(body).not.toMatch(/tiny|small|kilobyte|file size|lightweight/i);
   });
 
+  /* The developer rail's second clause is the no-handoff thesis — the same
+     argument the glyphs draw, and the reason this rail exists rather than just
+     linking the docs. A first pass at trimming this section cut it as filler; it
+     is not filler, so it is pinned here. Trimming must not eat the thesis. */
+  it("the developer rail keeps the no-handoff clause", async () => {
+    await mountRails();
+    const rail = [...host!.querySelectorAll(".audience-rails__rail")].find((el) =>
+      el.textContent?.includes("03 — DEVELOPERS"),
+    );
+    const body = rail!.querySelector(".audience-rails__body")!.textContent ?? "";
+    expect(body).toContain("Data binding is the contract");
+    expect(body).toMatch(/bind in code, design keeps moving/i);
+  });
+
+  /* "Animate for runtime" is the headline; shipping is what makes runtime the
+     differentiator, so the body must say ships, not merely stays. */
+  it("the animator rail claims the output ships, not just persists", async () => {
+    await mountRails();
+    const rail = [...host!.querySelectorAll(".audience-rails__rail")].find((el) =>
+      el.textContent?.includes("02 — ANIMATORS"),
+    );
+    const body = rail!.querySelector(".audience-rails__body")!.textContent ?? "";
+    expect(body).toMatch(/ships interactive/i);
+  });
+
   it("every rail still keeps its call to action", async () => {
     await mountRails();
     const links = [...host!.querySelectorAll(".audience-rails__rail .text-link")];

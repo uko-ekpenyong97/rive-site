@@ -23,7 +23,7 @@ const RAILS: Rail[] = [
   {
     marker: "01 — DESIGNERS",
     headline: "Design with real logic",
-    body: "The pen tool and components you know, plus state machines you build visually — no code.",
+    body: "The pen tool and components you know — plus state machines you build visually, not in code.",
     cta: "Explore the editor →",
     href: "https://editor.rive.app",
     glyph: "GlyphDesigner",
@@ -31,7 +31,7 @@ const RAILS: Rail[] = [
   {
     marker: "02 — ANIMATORS",
     headline: "Animate for runtime",
-    body: "Timelines, keyframes, and easing like the tools you came from — except your work stays interactive.",
+    body: "Timelines, keyframes, and easing you already know — except the output ships interactive.",
     cta: "See animation tools →",
     href: "#",
     glyph: "GlyphAnimator",
@@ -39,7 +39,7 @@ const RAILS: Rail[] = [
   {
     marker: "03 — DEVELOPERS",
     headline: "Ship it natively",
-    body: "Open-source runtimes for every platform, and data binding is the contract between code and design.",
+    body: "Open-source runtimes everywhere. Data binding is the contract — bind in code, design keeps moving.",
     cta: "Read the docs →",
     href: "https://rive.app/docs",
     glyph: "GlyphDeveloper",
