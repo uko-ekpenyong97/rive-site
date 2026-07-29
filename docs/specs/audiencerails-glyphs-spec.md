@@ -122,3 +122,39 @@ Desynchronized primes-ish durations = the section shimmers without ever visibly 
 - AudienceRails glyphs: authored in-house, one file, three artboards, theme via VM color binding (Automotive's pattern, adopted deliberately).
 - Copy trimmed to X-card discipline; glyphs carry the feel.
 - Reference finding recorded: business.x.com's card glyphs are static; only its hero animates, desynchronized. Ours animate the grammar itself.
+
+---
+
+## 11. Decision log
+
+- **Glyph authoring → in-house, one file, three artboards, theme by view-model** (2026-07-28). The glyphs are our own drawing rather than a marketplace file, so there is nothing to credit and nothing licensed — which is exactly what lets them be `aria-hidden` decoration instead of a hero with a provenance chip. Colours bind to `GlyphVM.strokeColor` / `accentColor` and are written from resolved tokens at mount, the same shape the Automotive `DashboardVM` uses.
+  - **As built:** `audience_glyphs.riv`, 4,299 bytes, sha256 `650dc8b0…`. Artboards `GlyphDeveloper` / `GlyphAnimator` / `GlyphDesigner`, all 240 × 200, each carrying `Glyph_SM`.
+  - **House rule verified:** zero transitions out of the Any State across all four layers; every sustained state exits on a `GlyphVM.hover` comparison at 250 ms in both directions. Map read live from the editor over the Rive MCP, not inferred from names.
+  - **Why the write is load-bearing:** the file ships theme-agnostic on purpose, so skipping it does not degrade gracefully — it renders the baked `#8A8F98` / `#FFA41C` defaults and silently stops tracking the token system.
+
+- **`Rest` is a timeline, not a state → reduced motion drives `animations`, not `stateMachines`** (2026-07-28). Authoring `Rest` outside `Glyph_SM` is what makes the reduced-motion path deterministic: code plays one 1-frame timeline and lands on the authored pose.
+  - **Caveat recorded in code:** naming the state machine under reduced motion would start `Idle_Loop` — precisely what reduced motion exists to prevent. The map comment in `AudienceGlyph.tsx` says so at the point of use.
+  - Hover is likewise a **view-model property, not a state-machine input** (`inputs: []` on all three). `stateMachineInput("hover")` would compile, run, and do nothing.
+
+- **Failure renders nothing — deliberately unlike the hero §8 rule** (2026-07-28). A modal hero that fails degrades to a labelled placeholder because the sheet already reserved space and a gap would read as a bug. A glyph that fails renders no node at all.
+  - **Why not:** these are decorative-plus and the rail text is the information. A labelled ghost box would be louder than the drawing it replaced, and the rail collapses to exactly the rail that shipped before the glyphs existed.
+
+- **Lazy-on-approach + sustained observer — a new pattern, not a copied one** (2026-07-28). No Rive canvas in this repo was IntersectionObserver-gated before this; `LoopCanvas` mounts eagerly and never pauses. The idiom here composes StatsBand's observer shape with `RiveHero`'s pause rule.
+  - **Architecture:** `approached` latches (fetch once, never unmount) while `visible` keeps tracking (pause offscreen). StatsBand's observer disconnects on first hit because a count-up only needs to start; this one owns an ongoing idle rule and has to keep watching.
+  - **Known file behaviour:** retained content outlives visibility, so "offscreen" is an explicit input to the canvas rather than an unmount assumption — the same rule the modal spec records for "closed".
+
+- **Copy trimmed to heading + two lines; the animator rail loses its size claim** (2026-07-28). Each rail now carries the offer and nothing else, per §1.
+  - **As built:** designers — "The pen tool and components you know, plus state machines you build visually — no code."; animators — "Timelines, keyframes, and easing like the tools you came from — except your work stays interactive."; developers — "Open-source runtimes for every platform, and data binding is the contract between code and design."
+  - **Why not:** "and the files stay tiny" was cut rather than reworded — it is a performance claim on a craft rail, and StatsBand already owns the size argument. Pinned by a test so it cannot drift back.
+
+- **`assetsInlineLimit` hardened for `.riv`** (2026-07-28). Vite's default inline threshold is 4,096 bytes and the glyph file is 4,299 — a 203-byte margin.
+  - **Why:** a re-export from the editor that shrank the file would silently flip it to a base64 `data:` URL, with no warning, no build error, and only in `vite build` (the dev server never inlines). Nothing downstream would have caught it, and `.riv` files are fetched and hover-preloaded *by URL*.
+  - **As built:** a predicate returning `false` for `.riv` and `undefined` for everything else, so no other asset type changes behaviour.
+
+- **The verification layer was untracked; it is committed now** (2026-07-28). `.context/modal-smoke.mjs` had accumulated 276 assertions over five sessions and had never been committed, because `.context/` is gitignored. Every past "N assertions passing" claim was therefore unreproducible by anyone but its author.
+  - **As built:** ported to Vitest under `src/__tests__/`, run with `npm test`. The original spun up its own Vite dev server and called `ssrLoadModule`; Vitest already *is* the Vite pipeline, so that scaffolding is gone and the modules import directly.
+  - **Caveat recorded in code:** `useCaseContent.ts` claimed the pending variant was "exercised by the smoke suite" while pointing at nothing tracked. It now names the test file, and records that the claim used to be unverifiable.
+  - The glyphs are guarded as **not heroes**: their artboards are asserted disjoint from the five shipped hero artboards, and the five-hero regression block is explicitly off-limits to them.
+
+- **One `CONFIRMED MAP` block, not three** (2026-07-28). The house format is one block per artboard, but all three glyph artboards implement an identical contract and differ only in loop duration and cast.
+  - **Why:** a single per-artboard table records strictly more than three near-identical blocks would. The deviation is stated inside the block itself rather than left for a reader to discover.
