@@ -13,6 +13,7 @@ import {
   BLUR_EASING,
   BLUR_PX,
   MAX_LAYERS,
+  ROLL_OVERLAP_MS,
   OFFSET,
   CENTER_OFFSET,
   SPIN_BLUR_PX,
@@ -142,6 +143,24 @@ describe("digit-roll motion values (pinned — a softer 'cleanup' must fail here
 
   it("caps live layers per slot at 3", () => {
     expect(MAX_LAYERS).toBe(3);
+  });
+
+  /* Incoming and outgoing already run concurrently, so a symmetric crossfade
+     bottoms at max(e, 1-e) = 0.50 — measured 0.504. Holding the outgoing at
+     full strength for this long lifts the crossing to a measured 0.955.
+
+     THE MARGIN AGAINST THE LAYER CAP IS ZERO: an outgoing layer now lives
+     ROLL_OVERLAP_MS + SPRING_DURATION_MS = 200ms, against a shortest tail dwell
+     of 150ms, so it outlives the next arrival and the measured peak is exactly
+     MAX_LAYERS. Any tail dwell shorter than 200ms would want a fourth layer and
+     the cap would cull a still-visible glyph. */
+  it("overlaps rolls, and stays inside the layer cap while doing it", () => {
+    expect(ROLL_OVERLAP_MS).toBe(50);
+    const outgoingLifetime = ROLL_OVERLAP_MS + SPRING_DURATION_MS;
+    expect(outgoingLifetime).toBe(200);
+    const shortestDwell = Math.min(...TAIL_DWELLS);
+    /* One overlap deep is fine (that is the third layer). Two would not be. */
+    expect(outgoingLifetime).toBeLessThan(shortestDwell * 2);
   });
 });
 

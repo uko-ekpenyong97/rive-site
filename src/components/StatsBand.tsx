@@ -12,6 +12,7 @@ import {
   BLUR_EASING,
   COUNT_STAGGER_MS,
   MAX_LAYERS,
+  ROLL_OVERLAP_MS,
   SPIN_EXIT_MS,
   SPRING_DURATION_MS,
   SPRING_EASING,
@@ -114,13 +115,29 @@ function Slot({
   /* A slot that appears mid-count is a new decimal place, not a value change. */
   const mountedMidCount = useRef(false);
 
+  /**
+   * Store the node. DELIBERATELY does not tear down on null.
+   *
+   * React re-invokes an inline ref callback with null on EVERY re-render, not
+   * just on unmount. Cleaning up here cancelled the surviving layer's live
+   * animation and dropped it from `running`, so the next effect pass saw an
+   * unanimated layer and replayed its entrance from opacity 0. Measured: the
+   * frame after a spent layer retired, the visible digit fell to 0.00 for two
+   * frames and then popped back to 1.00 — once per roll, on every stat. That
+   * was the flicker. Teardown belongs with the retirement that actually removes
+   * a layer, which is where it now lives.
+   */
   const register = useCallback((id: number, el: HTMLSpanElement | null) => {
     if (el) nodes.current.set(id, el);
-    else {
-      running.current.get(id)?.forEach((a) => a.cancel());
-      running.current.delete(id);
-      nodes.current.delete(id);
-    }
+  }, []);
+
+  /** Drop a layer and everything holding it alive. */
+  const retireLayer = useCallback((id: number) => {
+    running.current.get(id)?.forEach((a) => a.cancel());
+    running.current.delete(id);
+    nodes.current.delete(id);
+    leaving.current.delete(id);
+    setLayers((prev) => prev.filter((l) => l.id !== id));
   }, []);
 
   /* The character is SETTLED in the markup and hidden here, before the first
@@ -154,8 +171,13 @@ function Slot({
     if (!revealed || hasRevealed.current) return;
     mountedMidCount.current = true;
     hasRevealed.current = true;
-    const el = nodes.current.get(layers[layers.length - 1]?.id);
+    const layer = layers[layers.length - 1];
+    const el = nodes.current.get(layer?.id);
     if (el) delete el.dataset.state;
+    /* Claim the layer so the drive effect below plays no entrance on it.
+       Clearing data-state alone was not enough — the entrance still ran, and
+       the digit was measured at opacity 0 for five frames as 99 became 100. */
+    if (layer) running.current.set(layer.id, []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -290,7 +312,14 @@ function Slot({
         animation.cancel();
       }
 
-      const options = { duration: SPRING_DURATION_MS, fill: "both" as const };
+      /* Hold at full strength for the overlap window, then leave. Without it
+         the two curves cross at half opacity and the slot visibly thins at
+         every roll. */
+      const options = {
+        duration: SPRING_DURATION_MS,
+        delay: ROLL_OVERLAP_MS,
+        fill: "both" as const,
+      };
       const out = el.animate([springFrame("outgoing")], {
         ...options,
         easing: SPRING_EASING,
@@ -298,12 +327,11 @@ function Slot({
       el.animate([blurFrame("outgoing")], { ...options, easing: BLUR_EASING });
       running.current.set(layer.id, [out]);
 
-      const retire = () =>
-        setLayers((prev) => prev.filter((l) => l.id !== layer.id));
+      const retire = () => retireLayer(layer.id);
       /* cancel() rejects `finished` with AbortError; retire the layer anyway. */
       out.finished.then(retire).catch(retire);
     }
-  }, [layers, revealed, reducedMotion, index]);
+  }, [layers, revealed, reducedMotion, index, retireLayer]);
 
   /* Reduced motion: settled from the first paint, one layer, no animation. */
   useEffect(() => {

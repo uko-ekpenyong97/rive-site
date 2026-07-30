@@ -77,12 +77,21 @@ export const COUNT_STAGGER_MS = 0;
  * after it is RETARGETED, so one retargeted at a tick is still alive at the next
  * whenever the interval is under 150ms.
  *
- * Under the two-regime count it is NOT reached: measured peak 2. The spin phase
+ * Under the two-regime count it fell to a measured peak of 2: the spin phase
  * spawns no layers at all (it swaps characters in place), and every tail dwell
- * is at least one roll long, so an outgoing layer always retires before the next
- * one arrives. The cap is a guard again rather than a working limit — but it is
- * cheap, and the arithmetic that makes it unnecessary lives in TAIL_DWELLS,
- * which is exactly the kind of thing a future tune could break.
+ * was at least one roll long, so an outgoing layer always retired before the
+ * next arrived.
+ *
+ * ROLL_OVERLAP_MS put it back to 3. Holding the outgoing at full strength for
+ * 50ms extends its life to 200ms against a 150ms minimum tail dwell, so it now
+ * outlives the next arrival — which is the whole point, and exactly what this
+ * cap is for. Measured peak 3, nothing culled, minimum combined slot opacity
+ * 0.955.
+ *
+ * THE MARGIN IS NOW ZERO. At the shipped numbers a fourth layer never wants to
+ * exist, but shortening any TAIL_DWELLS entry below ROLL_OVERLAP_MS +
+ * SPRING_DURATION_MS = 200ms would make one, and the cap would then cull a
+ * still-visible glyph. Re-measure this if either constant moves.
  */
 export const MAX_LAYERS = 3;
 
@@ -138,6 +147,19 @@ export const SPIN_DURATION_MS = 600;
  * dead). The tail is what makes the deceleration land.
  */
 export const TAIL_DWELLS = [150, 200, 250];
+
+/**
+ * How long the outgoing character is held at full strength before it starts to
+ * leave, so a slot always carries ink through a roll.
+ *
+ * Incoming and outgoing already run concurrently, so a symmetric crossfade
+ * bottoms at max(e, 1-e) = 0.50 — measured 0.504-0.508. That is shallow, but it
+ * is a visible half-strength dip on the all-roll stats, where it recurs at every
+ * step. Delaying the exit lifts the crossing point without changing either
+ * curve. It also means an outgoing layer can outlive the next tick's arrival,
+ * which is what MAX_LAYERS is for.
+ */
+export const ROLL_OVERLAP_MS = 50;
 
 /** At or below this there is nothing to spin — every step is a crafted roll. */
 export const SPIN_MIN_TARGET = 5;
