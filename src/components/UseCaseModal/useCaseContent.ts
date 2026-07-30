@@ -35,15 +35,15 @@ import drivingRivUrl from "../../assets/rive/driving_ui_concept.riv?url";
 import reticleRivUrl from "../../assets/rive/sci_fi_reticle.riv?url";
 
 /* Community thumbnails — harvested + downscaled by scripts/fetch-community.mjs. */
-import thumbGameHudscopeDemo from "../../assets/community/6511-12637-game-hudscope-demo.png";
-import thumbAbilityWheelInTheLegendOfZeldaTearsOfTheKingdomTotk from "../../assets/community/5432-10752-ability-wheel-in-the-legend-of-zelda-tears-of-the-kingdom-totk.png";
-import thumbSophiaIiiHud from "../../assets/community/5708-11153-sophia-iii-hud.png";
-import thumbCharacterSelectionMenu from "../../assets/community/27565-52075-character-selection-menu.png";
-import thumbPullToRefreshAnimationExample from "../../assets/community/2233-4412-pull-to-refresh-animation-example.png";
-import thumbInteractiveIconSet from "../../assets/community/25691-49048-interactive-icon-set.png";
-import thumbMoodInteraction from "../../assets/community/27639-52202-mood-interaction.png";
-import thumbCloudyWalk from "../../assets/community/24966-46592-cloudy-walk.png";
-import thumbSketchToIllustration from "../../assets/community/19349-43859-sketch-to-illustration.png";
+import thumbGameHudscopeDemo from "../../assets/community/6511-12637-game-hudscope-demo.avif";
+import thumbAbilityWheelInTheLegendOfZeldaTearsOfTheKingdomTotk from "../../assets/community/5432-10752-ability-wheel-in-the-legend-of-zelda-tears-of-the-kingdom-totk.avif";
+import thumbSophiaIiiHud from "../../assets/community/5708-11153-sophia-iii-hud.avif";
+import thumbCharacterSelectionMenu from "../../assets/community/27565-52075-character-selection-menu.avif";
+import thumbPullToRefreshAnimationExample from "../../assets/community/2233-4412-pull-to-refresh-animation-example.avif";
+import thumbInteractiveIconSet from "../../assets/community/25691-49048-interactive-icon-set.avif";
+import thumbMoodInteraction from "../../assets/community/27639-52202-mood-interaction.avif";
+import thumbCloudyWalk from "../../assets/community/24966-46592-cloudy-walk.avif";
+import thumbSketchToIllustration from "../../assets/community/19349-43859-sketch-to-illustration.avif";
 
 export type UseCaseTier = "full" | "lite";
 

@@ -100,15 +100,24 @@ export default defineConfig({
     // app bundle to a separate directory to avoid clobbering the tokens.
     outDir: "dist-app",
     emptyOutDir: true,
-    // .riv files are fetched, cached and hover-preloaded BY URL, so one must
-    // never be inlined as a base64 data: URL. Vite's default limit is 4096 B and
-    // audience_glyphs.riv is 4299 B — a 203-byte margin, which is not a margin.
-    // A re-export from the editor that shrank it would silently flip it to
-    // base64: no warning, no build error, and only in `vite build` (the dev
-    // server never inlines), so nothing downstream would catch it. Returning
+    // Never inline a .riv or an .avif.
+    //
+    // .riv files are fetched, cached and hover-preloaded BY URL. Vite's default
+    // limit is 4096 B and audience_glyphs.riv is 4299 B — a 203-byte margin,
+    // which is not a margin. A re-export from the editor that shrank it would
+    // silently flip it to base64: no warning, no build error, and only in
+    // `vite build` (the dev server never inlines).
+    //
+    // .avif joined the list once the community thumbnails were converted:
+    // 5 of the 27 landed under 4096 B and were inlined, adding 24 kB to the
+    // entry chunk. An inlined image cannot be lazy — `loading="lazy"` has
+    // nothing to defer — so those five below-the-fold thumbnails were being
+    // downloaded by every visitor before first paint, which is exactly what the
+    // conversion to AVIF was meant to stop.
+    //
     // `undefined` for every other asset preserves the default behaviour.
     assetsInlineLimit: (filePath) =>
-      filePath.endsWith(".riv") ? false : undefined,
+      /\.(riv|avif)$/.test(filePath) ? false : undefined,
   },
   test: {
     // The SSR render checks are the bulk of the suite and need no DOM. The few

@@ -19,17 +19,42 @@
  * - Some marketplace URLs redirect to /community/files/; we record the final URL.
  */
 import { execFile } from "node:child_process";
-import { mkdir, writeFile, stat } from "node:fs/promises";
+import { mkdir, writeFile, stat, readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import path from "node:path";
+import sharp from "sharp";
+import { verifyPixels } from "./lib/verify-pixels.mjs";
 
 const run = promisify(execFile);
 
 const OUT_DIR = "src/assets/community";
-const THUMB_WIDTH = 640; // ~2x the rendered slot; see the preload size discipline
+const THUMB_WIDTH = 640; // ~2x the widest rendered slot (the 280px wall tile)
+const AVIF_QUALITY = 55;
 const REQUIRED_LICENSE = "CC BY";
 
 const GROUPS = {
+  /* The CommunityWall — Rive's own Featured tab, in wall order (three rows of
+     six), minus anything already used elsewhere on this site. */
+  wall: [
+    "https://rive.app/marketplace/28334-53514-interactive-character-follow/",
+    "https://rive.app/marketplace/26133-49002-studiorun-a-cosmic-game-by-thelittlelabs/",
+    "https://rive.app/marketplace/28158-53168-interactive-aquarium/",
+    "https://rive.app/marketplace/27915-52755-yippee/",
+    "https://rive.app/marketplace/28363-53629-treasure-valley-interactive-map/",
+    "https://rive.app/marketplace/28142-53149-batter-up-bunny/",
+    "https://rive.app/marketplace/28160-53178-audio-player/",
+    "https://rive.app/marketplace/27290-51530-particles-and-physics-football/",
+    "https://rive.app/marketplace/27375-51723-a-piano-game/",
+    "https://rive.app/marketplace/28236-53335-a-drag-to-spin-rotary-picker-built-in-rive-scripting-da/",
+    "https://rive.app/marketplace/27842-52603-vintage-bike/",
+    "https://rive.app/marketplace/27832-52591-animojis/",
+    "https://rive.app/marketplace/28124-53413-auto-wrapping-pill-menu/",
+    "https://rive.app/marketplace/27773-52471-maasai-inspired-event-hero-banner-concept/",
+    "https://rive.app/marketplace/28184-53457-rumble-golf-challenge-mini-game/",
+    "https://rive.app/marketplace/27239-51435-messy-files/",
+    "https://rive.app/marketplace/25759-48234-slot-machine-game-with-scripting/",
+    "https://rive.app/marketplace/25989-48561-room-decor-mini-game/",
+  ],
   "game-ui": [
     "https://rive.app/community/files/6511-12637-game-hudscope-demo/",
     "https://rive.app/community/files/5432-10752-ability-wheel-in-the-legend-of-zelda-tears-of-the-kingdom-totk/",
@@ -73,7 +98,14 @@ function parse(html) {
   const rawTitle = html.match(/<title[^>]*>(.*?)<\/title>/s)?.[1] ?? "";
   /* Strip the React comment separators before matching. */
   const clean = decode(rawTitle).replace(/<!--\s*-->/g, "");
-  const m = clean.match(/^(.*?) by (.*?) - made with Rive/);
+  /* GREEDY first group, and it must stay greedy. Non-greedy matched the FIRST
+     " by ", which mangles any title that contains one: "StudioRun - A Cosmic
+     Game by TheLittleLabs" came back as title "StudioRun - A Cosmic Game" with
+     creator "TheLittleLabs by thelittlelabs". The username cross-check below is
+     what caught it — it flagged (username=thelittlelabs) against that creator,
+     which is precisely the corroboration it exists for. Greedy takes the LAST
+     " by " before the suffix, which is the separator the page actually uses. */
+  const m = clean.match(/^(.*) by (.*?) - made with Rive/);
 
   const title = m?.[1]?.trim() ?? meta(html, "og:title")?.trim() ?? null;
   const creator = m?.[2]?.trim() ?? null;
@@ -97,18 +129,34 @@ const slugOf = (url) =>
 async function thumbnail(url, slug) {
   const ext = path.extname(new URL(url).pathname) || ".png";
   const tmp = `/tmp/community-${slug}${ext}`;
-  const out = path.join(OUT_DIR, `${slug}.png`);
+  const out = path.join(OUT_DIR, `${slug}.avif`);
   await run("curl", ["-sL", "-m", 60, "-o", tmp, url].map(String));
-  /* Downscale locally: the source thumbnails are 1920x1080 (~1.6 MB each) for a
-     slot a few hundred px wide. sips is macOS-native, so no new dependency. */
-  await run("sips", ["--resampleWidth", String(THUMB_WIDTH), tmp, "--out", out]);
+
+  /* sharp, NOT sips, and AVIF, not PNG.
+     - sips cannot write WebP ("Can't write format: org.webmproject.webp") and
+       the newer marketplace pages serve WebP og:images, so the original sips
+       call failed outright on every one of them.
+     - AVIF is the whole weight story: the same 18 thumbnails are 3.60 MB as
+       640px PNG and 0.21 MB as 640px AVIF. Narrowing to 560px would have saved
+       0.03 MB — the container was the lever, not the resolution, so these keep
+       their full 2x width. */
+  const buffer = await sharp(tmp)
+    .resize({ width: THUMB_WIDTH, withoutEnlargement: true })
+    .avif({ quality: AVIF_QUALITY })
+    .toBuffer();
+
+  await writeFile(out, buffer);
   const { size } = await stat(out);
-  return { out, size };
+  return { out, size, buffer };
 }
 
 await mkdir(OUT_DIR, { recursive: true });
 const results = {};
 const excluded = [];
+/* Every encoded thumbnail is drawn in a real browser before this script exits.
+   Dimensions and a successful decode are not evidence of pixels — see
+   scripts/lib/verify-pixels.mjs for the AVIF that proved it. */
+const pending = [];
 
 for (const [group, urls] of Object.entries(GROUPS)) {
   results[group] = [];
@@ -128,7 +176,8 @@ for (const [group, urls] of Object.entries(GROUPS)) {
       continue;
     }
 
-    const { out, size } = await thumbnail(p.thumbnail, label);
+    const { out, size, buffer } = await thumbnail(p.thumbnail, label);
+    pending.push({ label: slugOf(finalUrl), buffer, out });
     const mismatch =
       p.username && p.username.toLowerCase() !== p.creator.toLowerCase()
         ? ` (username=${p.username})`
@@ -147,6 +196,22 @@ for (const [group, urls] of Object.entries(GROUPS)) {
       redirected: finalUrl !== url,
     });
   }
+}
+
+/* The pixel gate. A thumbnail that would render blank fails the harvest rather
+   than landing in src/assets/ looking like a successful download. */
+if (pending.length) {
+  console.error(`\n--- verifying ${pending.length} thumbnails have pixels ---`);
+  const checked = await verifyPixels(
+    pending.map((t) => ({ label: t.label, buffer: t.buffer, mime: "image/avif" })),
+  );
+  const blank = checked.filter((c) => c.blank);
+  for (const c of blank) console.error(`  BLANK  ${c.label}`);
+  if (blank.length) {
+    console.error(`\n${blank.length} thumbnail(s) decode but draw nothing. Aborting.`);
+    process.exit(1);
+  }
+  console.error(`  all ${checked.length} draw real pixels`);
 }
 
 console.error("\n--- excluded ---");

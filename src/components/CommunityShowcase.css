@@ -1,8 +1,12 @@
 .community-showcase {
   /* Duration knob: one full row traverses one tile-set copy in this time.
-     Per copy = 8 × (280px tile + 16px gap) = 2368px; translateX(-50%) travels
-     exactly one copy, so 100s ≈ 24px/s — a calm, readable drift. */
-  --wall-duration: 100s;
+     Per copy = 6 × (280px tile + 16px gap) = 1776px; translateX(-50%) travels
+     exactly one copy, so 75s ≈ 24px/s — a calm, readable drift.
+     RETUNED with the row length: this was 100s for eight tiles (2368px, also
+     ~24px/s). Leaving it at 100s while dropping to six would have quietly slowed
+     the wall by a third — the constant is a SPEED expressed as a duration, so it
+     only holds while the distance does. */
+  --wall-duration: 75s;
 
   display: flex;
   flex-direction: column;
@@ -66,24 +70,56 @@
   height: 184px;
   margin-inline-end: var(--space-4);
 
-  display: flex;
-  align-items: flex-end;
-  padding: var(--space-3);
+  position: relative;
+  overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--surface-overlay);
   border: 1px solid var(--border-subtle);
   text-decoration: none;
-  transition: background 300ms var(--ease-standard),
-    border-color 300ms var(--ease-standard);
+  transition: border-color 300ms var(--ease-standard);
 }
 
-/* Caption pinned bottom-left, inside the tile. */
+.community-showcase__thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The credit overlay. CC BY makes this an obligation, not a caption, so it is
+   real text inside the link at all times — quiet until the tile is hovered or
+   focused.
+
+   HIDDEN WITH OPACITY, DELIBERATELY. `display: none` or `visibility: hidden`
+   would take the title and creator out of the accessibility tree along with the
+   pixels, which would leave the link named only by its own URL and the
+   attribution unmet for exactly the people who cannot see the hover. */
 .community-showcase__caption {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
   font-family: var(--font-mono);
   font-size: 11px;
-  line-height: 1;
+  line-height: 1.3;
+  color: var(--text-primary);
+  background: linear-gradient(
+    to top,
+    var(--surface-canvas) 0%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 300ms var(--ease-standard);
+}
+
+.community-showcase__title {
+  color: var(--text-primary);
+}
+
+.community-showcase__creator {
   color: var(--text-muted);
-  transition: color 300ms var(--ease-standard);
 }
 
 /* -------------------------------------------------------------- Interaction */
@@ -97,12 +133,11 @@
 /* ...and the tile under the cursor / focus lifts out of the surface. */
 .community-showcase__tile:hover,
 .community-showcase__tile:focus-visible {
-  background: var(--surface-raised);
   border-color: var(--border-default);
 }
 .community-showcase__tile:hover .community-showcase__caption,
 .community-showcase__tile:focus-visible .community-showcase__caption {
-  color: var(--text-secondary);
+  opacity: 1;
 }
 
 .community-showcase__tile:focus-visible {

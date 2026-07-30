@@ -108,6 +108,21 @@ export async function verifyPixels(images) {
       return r.result.value;
     };
 
+    /* Wait for the document to actually contain the images before measuring.
+       Without this the check is a race: one small image happened to be parsed
+       by the time the first evaluate landed, but a batch of 27 was not, so
+       `document.images` came back empty and EVERY image was reported blank.
+       Failing closed is the right direction for a bug like that, but a gate
+       that blocks a correct harvest is still broken. */
+    for (let i = 0; i < 80; i++) {
+      const ready = await evaluate(
+        `document.images.length === ${images.length} &&
+         [...document.images].every((im) => im.complete)`,
+      );
+      if (ready) break;
+      await sleep(100);
+    }
+
     const stats = await evaluate(`(async () => {
       const out = [];
       for (const im of document.images) {

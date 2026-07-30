@@ -18,7 +18,8 @@
     "check:assets": "node scripts/check-riv-assets.mjs",
     "check:render": "node scripts/render-check.mjs",
     "analyze:crop": "node scripts/analyze-crop.mjs",
-    "convert:poster": "node scripts/convert-poster.mjs"
+    "convert:poster": "node scripts/convert-poster.mjs",
+    "fetch:community": "node scripts/fetch-community.mjs"
   },
   "dependencies": {
     "@rive-app/react-webgl2": "^4.30.0",

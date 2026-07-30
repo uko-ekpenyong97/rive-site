@@ -376,6 +376,106 @@ try {
         );
   }
   await send("Emulation.clearDeviceMetricsOverride");
+
+  /* ── CommunityWall ──────────────────────────────────────────────────────
+     18 CC BY files. The credit is a licence obligation, so the checks below are
+     about it surviving: real decoded pixels, and a static state under reduced
+     motion where the wall stops rather than scrolling credits past the reader. */
+  console.log("");
+  await evaluate(
+    "document.querySelector('.community-showcase')?.scrollIntoView({block:'center'})",
+  );
+  await sleep(1200);
+
+  const wall = await evaluate(`(() => {
+    const rows = [...document.querySelectorAll('.community-showcase__row')];
+    const tiles = [...document.querySelectorAll('.community-showcase__tile')];
+    const imgs = [...document.querySelectorAll('.community-showcase__thumb')];
+    const first = tiles[0] ? tiles[0].getBoundingClientRect() : null;
+    return {
+      rows: rows.length,
+      tiles: tiles.length,
+      tileSize: first ? Math.round(first.width) + 'x' + Math.round(first.height) : null,
+      loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length,
+      /* complete but zero-width = fetched and failed. That is the real failure;
+         "not yet loaded" is loading="lazy" doing its job. */
+      broken: imgs.filter((i) => i.complete && i.naturalWidth === 0).length,
+      images: imgs.length,
+      /* The overlay must hide with opacity, not display/visibility — otherwise
+         the credit leaves the accessibility tree with the pixels. */
+      captionHidden: (() => {
+        const c = document.querySelector('.community-showcase__caption');
+        if (!c) return null;
+        const s = getComputedStyle(c);
+        return s.display !== 'none' && s.visibility !== 'hidden';
+      })(),
+      moving: rows.length
+        ? getComputedStyle(rows[0].querySelector('.community-showcase__track')).animationName !== 'none'
+        : false,
+    };
+  })()`);
+
+  wall.rows === 3
+    ? good(`CommunityWall: 3 rows, ${wall.tiles} tiles`)
+    : bad(`CommunityWall: expected 3 rows, found ${wall.rows}`);
+
+  wall.tileSize === "280x184"
+    ? good("CommunityWall: tiles at 280x184")
+    : bad(`CommunityWall: tile is ${wall.tileSize}, expected 280x184`);
+
+  /* Decoded pixels, not just an <img> with a src — but NOT "all of them".
+     These are loading="lazy" and the rows run wider than the viewport, so most
+     tiles legitimately have not fetched yet. Demanding all 36 would have been
+     asserting against a feature this section deliberately uses. What matters is
+     that nothing which DID fetch came back empty. */
+  wall.broken === 0 && wall.loaded > 0
+    ? good(
+        `CommunityWall: ${wall.loaded} of ${wall.images} thumbnails decoded so far, 0 broken (rest are lazy)`,
+      )
+    : bad(
+        `CommunityWall: ${wall.broken} thumbnail(s) fetched and failed to decode`,
+      );
+
+  wall.captionHidden
+    ? good("CommunityWall: credit hides with opacity, stays in the a11y tree")
+    : bad("CommunityWall: credit is display/visibility hidden — leaves the a11y tree");
+
+  wall.moving
+    ? good("CommunityWall: rows are scrolling")
+    : bad("CommunityWall: rows are not animating");
+
+  /* Reduced motion is a RENDER BRANCH here, not a paused animation: the static
+     grid is different DOM, so duplicated tiles should not ship at all. */
+  await send("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+  });
+  await evaluate("location.reload()");
+  await sleep(2500);
+  await evaluate(
+    "document.querySelector('.community-showcase')?.scrollIntoView({block:'center'})",
+  );
+  await sleep(800);
+
+  const reduced = await evaluate(`(() => ({
+    grid: !!document.querySelector('.community-showcase__grid'),
+    wall: !!document.querySelector('.community-showcase__wall'),
+    tiles: document.querySelectorAll('.community-showcase__tile').length,
+    hidden: document.querySelectorAll('.community-showcase__tile[aria-hidden]').length,
+  }))()`);
+
+  reduced.grid && !reduced.wall
+    ? good("CommunityWall: reduced motion renders the static grid, not the wall")
+    : bad(
+        `CommunityWall: reduced motion still rendered the wall (grid=${reduced.grid} wall=${reduced.wall})`,
+      );
+
+  reduced.tiles === 6 && reduced.hidden === 0
+    ? good("CommunityWall: reduced motion ships 6 tiles and no duplicates")
+    : bad(
+        `CommunityWall: reduced motion has ${reduced.tiles} tiles, ${reduced.hidden} duplicated`,
+      );
+
+  await send("Emulation.setEmulatedMedia", { features: [] });
 } catch (err) {
   bad(err.message);
 } finally {
