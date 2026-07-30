@@ -266,6 +266,78 @@ try {
   stats.clipped === 0
     ? good("StatsBand: no slot clips its blur")
     : bad(`StatsBand: ${stats.clipped} slot(s) have overflow != visible`);
+
+  /* ── DeveloperZone code window ──────────────────────────────────────────
+     The sample scrolls rather than wraps, so the thing to verify is that the
+     scroll stays INSIDE the panel: a code block that pushes the page sideways
+     is the failure mode this trades against. Checked at 375px, narrower than
+     the section's 1024px single-column breakpoint. */
+  console.log("");
+  await send("Emulation.setDeviceMetricsOverride", {
+    width: 375,
+    height: 800,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  await evaluate(
+    "document.querySelector('.developer-zone')?.scrollIntoView({block:'center'})",
+  );
+  await sleep(600);
+
+  const dev = await evaluate(`(() => {
+    const panel = document.querySelector('.developer-zone__panel');
+    const pre = document.querySelector('.developer-zone__code');
+    const btn = document.querySelector('.developer-zone__clipboard');
+    if (!panel || !pre) return null;
+    /* Scoped to the panel's own right edge, NOT the page's scrollWidth. At
+       375px this page already overflows for reasons that predate the code
+       window — the nav does not collapse below ~640px, DotField sizes past the
+       viewport, and the logo marquee is deliberately wider than its clip. A
+       page-wide assertion here would fail for someone else's bug and teach
+       whoever hits it to ignore this check. */
+    const vw = document.documentElement.clientWidth;
+    return {
+      panelRightEdge: Math.round(panel.getBoundingClientRect().right),
+      viewport: vw,
+      panelOverflow: panel.scrollWidth - panel.clientWidth,
+      preScrolls: pre.scrollWidth > pre.clientWidth,
+      lines: pre.querySelectorAll('.dz-line').length,
+      hasGutter: getComputedStyle(pre.querySelector('.dz-line'), '::before').content !== 'none',
+      button: btn ? btn.getAttribute('aria-label') : null,
+      text: pre.textContent.includes('autoBind') && pre.textContent.includes('viewModelInstance'),
+    };
+  })()`);
+
+  if (!dev) {
+    bad("DeveloperZone: code window not found");
+  } else {
+    dev.text
+      ? good(`DeveloperZone: sample rendered, ${dev.lines} lines`)
+      : bad("DeveloperZone: sample text missing autoBind/viewModelInstance");
+
+    dev.panelRightEdge <= dev.viewport + 1
+      ? good(`DeveloperZone: panel stays inside the 375px viewport`)
+      : bad(
+          `DeveloperZone: panel right edge ${dev.panelRightEdge}px exceeds the ${dev.viewport}px viewport`,
+        );
+
+    dev.panelOverflow <= 0
+      ? good("DeveloperZone: the panel contains its own scroll")
+      : bad(`DeveloperZone: panel overflows by ${dev.panelOverflow}px`);
+
+    dev.preScrolls
+      ? good("DeveloperZone: long lines scroll inside the window (not wrapped)")
+      : good("DeveloperZone: sample fits without scrolling at this width");
+
+    dev.hasGutter
+      ? good("DeveloperZone: line-number gutter is generated content")
+      : bad("DeveloperZone: no gutter — numbers would be copyable text");
+
+    dev.button === "Copy code sample"
+      ? good("DeveloperZone: copy button has an accessible name")
+      : bad(`DeveloperZone: copy button aria-label is ${dev.button}`);
+  }
+  await send("Emulation.clearDeviceMetricsOverride");
 } catch (err) {
   bad(err.message);
 } finally {

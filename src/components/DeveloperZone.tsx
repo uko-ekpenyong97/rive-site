@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+import { html as snippetHtml, source as snippetSource } from "virtual:dev-zone-snippet";
 import SectionHeader from "./SectionHeader";
 import "./DeveloperZone.css";
 
@@ -12,17 +14,49 @@ const RUNTIMES = [
   "C++",
 ];
 
-/* Three-tone token highlighting — plain spans, no highlighting library.
-   base: --text-secondary · str: --text-accent · com: --text-muted · kw: --text-primary */
-const S = ({ children }: { children: React.ReactNode }) => (
-  <span className="dz-str">{children}</span>
-);
-const C = ({ children }: { children: React.ReactNode }) => (
-  <span className="dz-com">{children}</span>
-);
-const K = ({ children }: { children: React.ReactNode }) => (
-  <span className="dz-kw">{children}</span>
-);
+/** How long "Copied" stays up before the button goes quiet again. */
+const COPIED_MS = 1600;
+
+/**
+ * Copies the sample's SOURCE, never the highlighted markup — so what lands on
+ * the clipboard is the text the compiler checks, with no span soup and no
+ * gutter numbers (those are CSS generated content precisely so they cannot be
+ * copied, by this button or by a manual selection).
+ */
+function CopyButton({ source }: { source: string }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(source);
+      setCopied(true);
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setCopied(false), COPIED_MS);
+    } catch {
+      /* Clipboard denied or unavailable — say nothing rather than claim a copy
+         that did not happen. The sample is still selectable by hand. */
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className="developer-zone__clipboard"
+      onClick={copy}
+      aria-label={copied ? "Code sample copied" : "Copy code sample"}
+    >
+      {/* Both labels are always in the DOM, stacked, so the button's width is
+          the wider of the two and the confirmation shifts nothing. */}
+      <span aria-hidden="true" className="developer-zone__clipboard-slot">
+        <span data-shown={!copied}>Copy</span>
+        <span data-shown={copied}>Copied</span>
+      </span>
+    </button>
+  );
+}
 
 export function DeveloperZone() {
   return (
@@ -63,38 +97,16 @@ export function DeveloperZone() {
             <span className="developer-zone__dot" />
             <span className="developer-zone__dot" />
             <span className="developer-zone__dot" />
-            <span className="developer-zone__filename">App.tsx</span>
+            <span className="developer-zone__filename">AgentCard.tsx</span>
+            <CopyButton source={snippetSource} />
           </div>
 
+          {/* Tokenized at build time from src/components/dev-zone/snippet.tsx —
+              a real file that tsc compiles in CI, so this sample cannot teach an
+              API the installed runtime no longer has. The markup carries only
+              our own three token classes; no highlighter ships. */}
           <pre className="developer-zone__code">
-            <code>
-              <K>import</K> {"{ useRive }"} <K>from</K>{" "}
-              <S>'@rive-app/react-canvas'</S>;{"\n"}
-              {"\n"}
-              <K>export function</K> <K>Hero</K>() {"{"}
-              {"\n"}
-              {"  "}
-              <K>const</K> {"{ rive, RiveComponent }"} = <K>useRive</K>({"{"}
-              {"\n"}
-              {"    "}src: <S>'hero.riv'</S>,{"\n"}
-              {"    "}stateMachines: <S>'Main'</S>,{"\n"}
-              {"    "}autoplay: <K>true</K>,{"\n"}
-              {"    "}autoBind: <K>true</K>, <C>{"// binds the default view model"}</C>
-              {"\n"}
-              {"  "}{"}"});{"\n"}
-              {"\n"}
-              {"  "}
-              <C>{"// design's contract, live in code"}</C>
-              {"\n"}
-              {"  "}rive?.viewModelInstance?.<K>number</K>(<S>'progress'</S>).value
-              = <K>0.5</K>;{"\n"}
-              {"\n"}
-              {"  "}
-              <K>return</K> {"<"}
-              <K>RiveComponent</K> {"/>"};{"\n"}
-              {"}"}
-              {"\n"}
-            </code>
+            <code dangerouslySetInnerHTML={{ __html: snippetHtml }} />
           </pre>
         </div>
       </div>

@@ -11,6 +11,11 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
+    /* vite.config.ts genuinely IS Node code — it reads the snippet off disk to
+       tokenize it. Scoped here on purpose: this project only includes
+       vite.config.ts, so Node globals never reach app code, where they would
+       mask the browser/node confusion the app tsconfig exists to catch. */
+    "types": ["node"],
 
     /* Linting */
     "strict": true,

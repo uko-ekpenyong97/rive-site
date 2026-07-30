@@ -81,6 +81,48 @@
   color: var(--text-muted);
 }
 
+/* Pushed to the right end of the titlebar. Deliberately NOT __copy — that class
+   is already the prose column on the left, and reusing it would restyle it. */
+.developer-zone__clipboard {
+  margin-left: auto;
+  padding: var(--space-1) var(--space-2);
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.developer-zone__clipboard:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.developer-zone__clipboard:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Both labels occupy the same cell, so the button is as wide as the longer one
+   and swapping "Copy" for "Copied" moves nothing around it. */
+.developer-zone__clipboard-slot {
+  display: grid;
+}
+
+.developer-zone__clipboard-slot > span {
+  grid-area: 1 / 1;
+  text-align: center;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.developer-zone__clipboard-slot > span[data-shown="false"] {
+  opacity: 0;
+}
+
 .developer-zone__code {
   margin: 0;
   padding: var(--space-4);
@@ -88,7 +130,31 @@
   font-size: var(--font-size-code);
   line-height: 1.7;
   color: var(--text-secondary);
+  /* Code SCROLLS rather than wraps at narrow widths. Wrapping breaks a line
+     mid-token and desynchronises the gutter from the lines it numbers, so the
+     numbers would start lying about the code. The scroll is contained inside
+     the panel; the titlebar above it stays put. */
   overflow-x: auto;
+  counter-reset: dz-line;
+}
+
+/* One element per source line, so the gutter can be a counter. */
+.dz-line {
+  display: block;
+  counter-increment: dz-line;
+}
+
+/* Generated content, so neither this button's copy nor a hand-made text
+   selection can ever pick the numbers up. */
+.dz-line::before {
+  content: counter(dz-line);
+  display: inline-block;
+  width: 2ch;
+  margin-right: var(--space-3);
+  text-align: right;
+  color: var(--text-muted);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Three-tone token highlighting */
