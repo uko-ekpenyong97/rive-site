@@ -303,6 +303,20 @@ try {
       preScrolls: pre.scrollWidth > pre.clientWidth,
       lines: pre.querySelectorAll('.dz-line').length,
       hasGutter: getComputedStyle(pre.querySelector('.dz-line'), '::before').content !== 'none',
+      /* Vertical rhythm. The advance is the real distance between consecutive
+         line boxes; if it drifts above the line-height, something is adding a
+         row per line — which is exactly how this window once grew to 1110px
+         (block lines plus the preserved newline between them, ratio 2.02).
+         No backticks in here: this whole block is inside a template literal. */
+      lineHeight: parseFloat(getComputedStyle(pre).lineHeight),
+      advance: (() => {
+        const l = [...pre.querySelectorAll('.dz-line')];
+        if (l.length < 3) return null;
+        return l[2].getBoundingClientRect().top - l[1].getBoundingClientRect().top;
+      })(),
+      contentHeight: pre.scrollHeight
+        - parseFloat(getComputedStyle(pre).paddingTop)
+        - parseFloat(getComputedStyle(pre).paddingBottom),
       button: btn ? btn.getAttribute('aria-label') : null,
       text: pre.textContent.includes('autoBind') && pre.textContent.includes('viewModelInstance'),
     };
@@ -336,6 +350,30 @@ try {
     dev.button === "Copy code sample"
       ? good("DeveloperZone: copy button has an accessible name")
       : bad(`DeveloperZone: copy button aria-label is ${dev.button}`);
+
+    /* One row per source line, and no more. */
+    if (dev.advance !== null) {
+      const ratio = dev.advance / dev.lineHeight;
+      ratio <= 1.05
+        ? good(
+            `DeveloperZone: one row per line (advance ${dev.advance.toFixed(1)}px / line-height ${dev.lineHeight}px = ${ratio.toFixed(2)})`,
+          )
+        : bad(
+            `DeveloperZone: ${ratio.toFixed(2)} rows per line — something adds a row per line (advance ${dev.advance.toFixed(1)}px vs line-height ${dev.lineHeight}px)`,
+          );
+    }
+
+    /* lines x line-height should account for the content box. A per-line margin
+       would show up here even if the advance check somehow passed. */
+    const expected = dev.lines * dev.lineHeight;
+    const drift = Math.abs(dev.contentHeight - expected);
+    drift <= dev.lineHeight
+      ? good(
+          `DeveloperZone: ${dev.lines} lines x ${dev.lineHeight}px accounts for the ${Math.round(dev.contentHeight)}px content box`,
+        )
+      : bad(
+          `DeveloperZone: content box ${Math.round(dev.contentHeight)}px vs ${Math.round(expected)}px expected — ${Math.round(drift)}px of unexplained spacing`,
+        );
   }
   await send("Emulation.clearDeviceMetricsOverride");
 } catch (err) {

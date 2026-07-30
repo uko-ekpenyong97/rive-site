@@ -125,10 +125,10 @@
 
 .developer-zone__code {
   margin: 0;
-  padding: var(--space-4);
+  padding: var(--space-6);
   font-family: var(--font-mono);
   font-size: var(--font-size-code);
-  line-height: 1.7;
+  line-height: 1.6;
   color: var(--text-secondary);
   /* Code SCROLLS rather than wraps at narrow widths. Wrapping breaks a line
      mid-token and desynchronises the gutter from the lines it numbers, so the
@@ -138,9 +138,17 @@
   counter-reset: dz-line;
 }
 
-/* One element per source line, so the gutter can be a counter. */
+/* One element per source line, so the gutter can be a counter.
+
+   DELIBERATELY INLINE. Making these blocks double-spaced the whole window:
+   inside a <pre> the newline the tokenizer puts BETWEEN lines is preserved
+   whitespace, so a block line and its trailing newline each took a row —
+   measured advance 48px against a 23.8px line-height, ratio 2.02, and a window
+   1110px tall beside a 177px prose column. Inline, the newline does the line
+   breaking on its own and the counter still increments once per span. Keeping
+   the newline in the markup is what lets a hand-made selection copy real
+   lines. */
 .dz-line {
-  display: block;
   counter-increment: dz-line;
 }
 
