@@ -582,6 +582,29 @@ try {
       dot: !!dot,
       dotAnimations: dot ? dot.getAnimations().length : 0,
       dotOffsetPath: dot ? getComputedStyle(dot).offsetPath.slice(0, 12) : null,
+      /* An SVG clips to its viewBox, and these letterforms fill theirs exactly,
+         so anything riding the path gets cut in half wherever the path meets an
+         edge. Walk the whole lap and report the tightest clearance rather than
+         trusting whichever frame a screenshot happened to catch. */
+      dotClearance: (() => {
+        if (!dot) return null;
+        const b = svg.getBoundingClientRect();
+        const before = dot.style.offsetDistance;
+        const anims = dot.getAnimations();
+        anims.forEach((a) => a.pause());
+        let tightest = Infinity;
+        for (let p = 0; p <= 100; p += 2) {
+          dot.style.offsetDistance = p + '%';
+          const d = dot.getBoundingClientRect();
+          tightest = Math.min(
+            tightest,
+            d.top - b.top, b.bottom - d.bottom, d.left - b.left,
+          );
+        }
+        dot.style.offsetDistance = before;
+        anims.forEach((a) => a.play());
+        return Math.round(tightest * 10) / 10;
+      })(),
       /* The mark IS the bottom edge. */
       gapBelow: Math.round(doc.scrollHeight - (r.bottom + window.scrollY)),
       /* Scoped to the MARK, not the page. This page has deliberately full-bleed
@@ -625,6 +648,14 @@ try {
       ? good("FooterMark: payload dot riding one motion-path animation")
       : bad(
           `FooterMark: dot=${mark.dot} animations=${mark.dotAnimations} offsetPath=${mark.dotOffsetPath}`,
+        );
+
+    mark.dotClearance !== null && mark.dotClearance > 0
+      ? good(
+          `FooterMark: dot stays inside the viewBox all lap (tightest ${mark.dotClearance}px)`,
+        )
+      : bad(
+          `FooterMark: dot is clipped by the viewBox (clearance ${mark.dotClearance}px) — the letterforms fill their box, so the mark needs padding`,
         );
 
     console.log("        layers:", mark.strokes.join("  |  "));

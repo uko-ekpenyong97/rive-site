@@ -25,9 +25,23 @@ const html = renderToString(<Footer />);
 /* ── the letterforms ──────────────────────────────────────────────────────── */
 
 describe("the wordmark", () => {
-  it("renders in the footer at the logotype's own viewBox", () => {
+  /* The rendered box is the logotype's, opened up on every side. It cannot be
+     the raw one: the letterforms touch all four edges of 0 0 275 50, and an SVG
+     clips to its viewBox, so the payload dot lost its top half every time it
+     crossed the R's shoulder at y=0. */
+  it("renders in the footer at a padded version of the logotype's viewBox", () => {
     expect(html).toContain('class="footer-mark"');
-    expect(html).toContain(`viewBox="${RIVE_WORDMARK_VIEWBOX}"`);
+    const [vx, vy, vw, vh] = RIVE_WORDMARK_VIEWBOX.split(" ").map(Number);
+    const rendered = html.match(/class="footer-mark"[^>]*viewBox="([^"]+)"/)?.[1];
+    expect(rendered, "no viewBox on the mark").toBeTruthy();
+    const [rx, ry, rw, rh] = rendered!.split(" ").map(Number);
+    const pad = vx - rx;
+    /* Enough for the dot's radius plus the widest half-stroke at the smallest
+       width this renders at. */
+    expect(pad).toBeGreaterThanOrEqual(2);
+    expect(ry).toBe(vy - pad);
+    expect(rw).toBe(vw + pad * 2);
+    expect(rh).toBe(vh + pad * 2);
   });
 
   it("is the last thing in the footer", () => {

@@ -41,6 +41,36 @@ const LAYERS = [
 /** One full lap of the R. Slow enough to be discovered, not watched. */
 const LAP_MS = 45_000;
 
+/**
+ * Breathing room around the logotype's own box, in its user units.
+ *
+ * The letterforms fill viewBox 0 0 275 50 exactly — they touch all four edges —
+ * and an SVG clips to its viewBox. So anything drawn ON the path gets cut in
+ * half wherever the path runs along an edge: the payload dot was losing its top
+ * as it crossed the R's shoulder at y=0, and the widest ghost stroke was being
+ * shaved everywhere the letters meet the boundary.
+ *
+ * 2.5 covers the worst case. The dot contributes its radius (1.6, fixed in user
+ * units). The strokes contribute half their width, and because they are
+ * non-scaling they get WIDER in user units as the mark gets smaller — at a 375px
+ * viewport the 2.5px ghost is ~1.9 user units, so ~0.93 of overhang. 1.6 + 0.93
+ * still fits inside 2.5 at every width this renders at.
+ *
+ * The side effect is welcome: the mark no longer sits absolutely flush, which is
+ * closer to the reference anyway — X's own footer mark clears the page end by
+ * about 32px rather than touching it.
+ */
+const MARK_PAD = 2.5;
+
+/** The logotype's box, opened up by the pad on every side. */
+const [vx, vy, vw, vh] = RIVE_WORDMARK_VIEWBOX.split(" ").map(Number);
+const PADDED_VIEWBOX = [
+  vx - MARK_PAD,
+  vy - MARK_PAD,
+  vw + MARK_PAD * 2,
+  vh + MARK_PAD * 2,
+].join(" ");
+
 /* Read synchronously, not from usePrefersReducedMotion. That hook resolves in a
    useEffect, which lands AFTER the first paint — and here the preference decides
    whether the dot element EXISTS, so trusting it would mount and animate a dot
@@ -138,7 +168,7 @@ export function FooterMark() {
     <svg
       className="footer-mark"
       ref={hostRef}
-      viewBox={RIVE_WORDMARK_VIEWBOX}
+      viewBox={PADDED_VIEWBOX}
       /* The letterforms are the page's own closing word, not information — the
          footer already says RIVE in text above this. */
       aria-hidden="true"
