@@ -31,15 +31,23 @@ editing one.
 The live site's signature move, and the reason these buttons read as Rive rather
 than as a CSS hover: **the canvas is far larger than the button**.
 
-| | Artboard | Button | Overflow |
-|---|---|---|---|
-| Cat (nav) | 269×150 | ~118px wide | most of the art sits above the hitbox |
-| Rocket (hero) | 500×500 | ~118px wide | ~230px above and below the row |
+| | Artboard | Button | Anchor | Overflow |
+|---|---|---|---|---|
+| Cat (nav) | 269×150 | 109×40 | `anchorY 0.2` | hangs **below**, out of the nav bar |
+| Rocket (hero) | 500×500 | 109×40 | `anchorY 0.78` | **rides above** the CTA row |
 
-- The **button element is the hitbox** and sits in normal flow.
-- The **canvas is absolutely positioned**, centred on it, `pointer-events: none`.
-  It costs zero layout, so a 500px canvas shifts nothing.
-- Pointer events land on the button and are forwarded to the state machine.
+- The **button is ordinary content in normal flow and it defines the layout**,
+  full stop.
+- The **canvas is absolutely positioned** and aimed at the button by the asset's
+  anchor — `anchorX/anchorY` is where the button's centre sits inside the canvas
+  box, so the art hangs wherever the file wants it.
+- **There is no reserved space anywhere, by design.** An absolutely positioned
+  element cannot cause layout shift, so reserving room for it only ever buys
+  dead space. An earlier version reserved 210px above and below the CTA row and
+  made the hero **1044px against a 620px pre-Rive baseline — 68% taller, all of
+  it empty**. Removing every trace of it lands at 648px (**+4.5%**).
+- Pointer events land on the button; the canvas is inert (`pointer-events: none`)
+  for every asset currently shipped.
 
 ### Layering against DotField
 
@@ -68,11 +76,49 @@ Every map was resolved from the **committed bytes** via `npm run probe:riv`, whi
 was extended in this build to enumerate state-machine inputs. Full source map and
 the maps themselves live in `src/components/riveSiteAssets.ts`, beside the data.
 
-| File | Artboard | SM | Inputs |
+| File | Artboard | SM | Inputs | `hasListeners` | Model |
+|---|---|---|---|---|---|
+| `get-started-cat.riv` 12,747 B | `Cat` 269×150 | `Motion` | 5 bool | **false** | manual |
+| `get-started-rocket.riv` 45,161 B | `Button` 500×500 | `Motion` | 1 bool `isHover` | **true** | manual (listeners inert) |
+| `r-logo-shuffle.riv` 3,089 B | `R_logo_shuffle` 120×120 | `State Machine 1` | **none** | false | none |
+
+### The pointer model is measured, and shape names lie about it
+
+`get-started-cat.riv` contains shapes literally named `Hitbox_left`,
+`Hitbox_right`, `Hitbox_left2`, `Hitbox_right2` — and carries **no listeners**.
+`get-started-rocket.riv` contains no hitbox-named shape and **does** carry them.
+Reading the names gets both files backwards.
+
+`hasListeners` turns out to be **necessary but not sufficient**. The rocket
+reports listeners that never fire. Measured A/B, same build, only the model
+changed — non-transparent pixels on the 500×500 canvas, 5 trials of 10 frames:
+
+| model | idle | hovered | Δ |
 |---|---|---|---|
-| `get-started-cat.riv` 12,747 B | `Cat` 269×150 | `Motion` | 5 bool: `isHoverLeft2`, `isHoverLeft`, `isHovercenter`, `isHoverRight`, `isHoverRight2` |
-| `get-started-rocket.riv` 45,161 B | `Button` 500×500 | `Motion` | 1 bool: `isHover` |
-| `r-logo-shuffle.riv` 3,089 B | `R_logo_shuffle` 120×120 | `State Machine 1` | **none** |
+| `listeners` | 577 ±11.4 | 584 | **7** — inside the noise floor |
+| `manual` | 577 ±11.5 | **3405 ±3.4** | **2828** |
+
+The canvas was confirmed hit-testable in both cases (`pointer-events: auto`,
+`elementFromPoint` returns the canvas) and driven with real CDP mouse input
+rather than JS-dispatched events, so this was not a plumbing failure on our
+side. The rocket is therefore wired manually, with `listenersInert: true`
+recorded so `check:assets` can tell a measured override from a mis-wiring.
+
+### The cat's zones are nested, not exclusive
+
+`isHoverLeft2` is the **extreme** lean and only fires while `isHoverLeft` is also
+set — the "2" inputs escalate the plain ones rather than replacing them. Pixel
+delta vs idle by pointer position across the button:
+
+| x | 0.05 | 0.15 | 0.30 | 0.50 | 0.70 | 0.85 | 0.95 |
+|---|---|---|---|---|---|---|---|
+| exclusive | 0 | 0 | 13 | 0 | 10 | 0 | 0 |
+| **nested** | **152** | **172** | 19 | 0 | 14 | **176** | **167** |
+
+With exclusive zones, three of five inputs rendered *literally the same frame as
+idle* (sd 0.000): the cat leaned two ways instead of four and the extremes never
+appeared. `isHovercenter` measures as no change either way, which is correct
+rather than dead — centre is the neutral forward pose.
 
 **Two things the pre-probe recon got wrong**, and why the probe rule exists:
 
@@ -242,12 +288,31 @@ keyframe written for it, is deleted. A test asserts the indices are exactly
   `canvasLive` (the file is painting) are now two distinct states, and a
   regression test pins that the canvas mounts *before* the runtime resolves.
 
-- **Two layout facts, measured not assumed.** `--rocket-clearance` started at
-  150px and the browser pass showed the art overlapping the proof line by 52px at
-  all three widths; it is 210px, which clears by 8px above and 200px below.
-  Separately, the nav cat's horizontal overflow disappeared once the label
-  stopped collapsing the button — the 22px page overflow was a symptom of the
-  hitbox bug, not of the canvas being too wide.
+- **The reservation was the bug, and it was mine.** An earlier pass read
+  "reserve the overflow space" as a layout requirement and gave the CTA row
+  210px of margin above and below. Absolutely positioned canvases cannot shift
+  layout, so all of it was dead: the hero measured 1044px against a 620px
+  pre-Rive baseline. Removing every trace lands at **648px, +4.5%**, with the
+  art free to overflow because overflow was never the thing that needed room.
+  A test now fails if `--rocket-clearance` reappears.
+
+- **`hasListeners` is necessary but not sufficient — verified by A/B.** The
+  rocket reports listeners that never fire; driving it manually changes 2828
+  pixels where the listeners model changed 7 against a noise floor of 11. Both
+  states were confirmed hit-testable with real browser input first, so this is a
+  fact about the file rather than about our plumbing. `check:assets` now permits
+  a `manual` model on a listeners-carrying file **only** when
+  `listenersInert: true` says so out loud; claiming `listeners` on a file that
+  has none stays an unconditional failure, because that direction wires up
+  nothing at all.
+
+- **The checker read its own comment as configuration.** While adding the
+  pointer-model parity check, the parser matched `pointer: "listeners"` from an
+  explanatory A/B table inside a comment block rather than the real
+  `pointer: "manual"` below it — and reported the wrong model as verified.
+  Comments are stripped before parsing now. Worth recording because it is the
+  exact failure this script's header warns about: a checker that agrees with
+  prose instead of code.
 
 - **Pre-existing, NOT introduced here:** at exactly 1280px the page overflows
   horizontally by 10px, caused by `.experts-strip__card`. Confirmed unrelated —

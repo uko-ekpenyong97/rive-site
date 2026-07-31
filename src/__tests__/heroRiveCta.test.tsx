@@ -167,6 +167,16 @@ describe("hero structure", () => {
     );
   });
 
+  it("reserves no vertical space for the overflow", () => {
+    /* REGRESSION. An earlier version reserved 210px above and below the CTA row
+       "for the rocket's overflow" and made the hero 1044px against a 620px
+       pre-Rive baseline. Absolutely positioned canvases cannot shift layout, so
+       any reservation is pure dead space. */
+    const css = readHeroCss();
+    expect(css.includes("--rocket-clearance")).toBe(false);
+    expect(/margin-block:\s*var\(--rocket/.test(css)).toBe(false);
+  });
+
   it("entrance indices cover the six-element stack with no gap", () => {
     /* The old order ended at 6 with the DemoSlot; re-indexed for the new stack.
        A duplicate or missing index makes an element pop out of cascade. */
@@ -311,26 +321,92 @@ describe("reduced motion", () => {
 });
 
 /* ───────────────────────────────────────────────────────────────────────── */
-describe("hover inputs match the probe", () => {
-  it("the cat drives its five zones, left to right, without gaps", () => {
-    const zones = GET_STARTED_CAT.hoverInputs.map((h) => h.zone);
-    expect(zones).toEqual([
-      [0, 0.2],
-      [0.2, 0.4],
-      [0.4, 0.6],
-      [0.6, 0.8],
-      [0.8, 1],
-    ]);
-    /* Contiguous: every pointer position lands in exactly one zone. */
-    for (let i = 1; i < zones.length; i++) {
-      expect(zones[i][0]).toBe(zones[i - 1][1]);
+describe("pointer model comes from the probe, not from taste", () => {
+  /* The single most consequential fact about each file, and not guessable:
+     get-started-cat.riv contains shapes named Hitbox_left / Hitbox_right /
+     Hitbox_left2 / Hitbox_right2 and has NO listeners; get-started-rocket.riv
+     contains no hitbox-named shape and HAS them. Reading the names gets both
+     backwards. `check:assets` asserts these against the committed bytes on
+     every CI run; these pin the wiring that follows from them. */
+
+  it("each file is on the model MEASUREMENT put it on", () => {
+    expect({
+      cat: GET_STARTED_CAT.pointer,
+      rocket: GET_STARTED_ROCKET.pointer,
+      rLogo: R_LOGO_SHUFFLE.pointer,
+    }).toEqual({ cat: "manual", rocket: "manual", rLogo: "none" });
+  });
+
+  it("the rocket's inert listeners are declared, not silently overridden", () => {
+    /* The probe says this file HAS listeners; a browser A/B says they never
+       fire (Δ non-transparent pixels: 7 on the listeners model vs 2828 on
+       manual, against an idle noise floor of ±11). Driving it manually is
+       therefore correct — but it is an override of what the artifact reports,
+       so it has to be stated. `check:assets` fails a "manual" model on a
+       listeners-carrying file unless this flag is set. */
+    expect(GET_STARTED_ROCKET.listenersInert).toBe(true);
+    expect(GET_STARTED_CAT.listenersInert).toBe(undefined);
+    expect(R_LOGO_SHUFFLE.listenersInert).toBe(undefined);
+  });
+
+  it("a manual file keeps its canvas inert and drives from the button", () => {
+    for (const asset of [GET_STARTED_CAT, GET_STARTED_ROCKET]) {
+      const el = mount(<RiveButton asset={asset} label="Get started" />);
+      expect(
+        el.querySelector(".rive-button__canvas")?.getAttribute("data-pointer"),
+      ).toBe("manual");
     }
+  });
+
+  it("an autonomous file is never driven and never receives events", () => {
+    const inputs: { name: string; value: boolean }[] = [];
+    fake.state.inputs.set("State Machine 1", inputs);
+    const el = mount(<RiveButton asset={R_LOGO_SHUFFLE} label="Downloads" />);
+    expect(
+      el.querySelector(".rive-button__canvas")?.getAttribute("data-pointer"),
+    ).toBe("none");
+  });
+
+  it("anchors aim the overflow: cat hangs below, rocket rides above", () => {
+    /* anchorY is where the BUTTON sits inside the canvas box. Below 0.5 the art
+       hangs downward (the cat, out of the nav bar); above it, the art rides up
+       (the rocket). */
+    expect(GET_STARTED_CAT.anchorY).toBeLessThan(0.5);
+    expect(GET_STARTED_ROCKET.anchorY).toBeGreaterThan(0.5);
+  });
+});
+
+describe("hover inputs match the probe", () => {
+  it("the cat's zones are NESTED, so the extremes escalate the plain leans", () => {
+    /* Measured, not designed: with exclusive zones, three of the five inputs
+       rendered literally the same frame as idle (pixel delta 0, sd 0.000) and
+       the cat only leaned two ways. `isHoverLeft2` fires only while
+       `isHoverLeft` is also set. Pixel delta vs idle across the button:
+         x           0.05  0.15  0.30  0.50  0.70  0.85  0.95
+         exclusive      0     0    13     0    10     0     0
+         nested       152   172    19     0    14   176   167  */
+    const byName = Object.fromEntries(
+      GET_STARTED_CAT.declaredInputs.map((h) => [h.name, h.zone]),
+    );
+    expect(byName).toEqual({
+      isHoverLeft2: [0, 0.2],
+      isHoverLeft: [0, 0.4],
+      isHovercenter: [0.4, 0.6],
+      isHoverRight: [0.6, 1],
+      isHoverRight2: [0.8, 1],
+    });
+    /* The extremes must sit INSIDE their plain counterparts, or they never
+       fire. This is the assertion that would have caught the original bug. */
+    expect(byName.isHoverLeft2[0]).toBeGreaterThanOrEqual(byName.isHoverLeft[0]);
+    expect(byName.isHoverLeft2[1]).toBeLessThanOrEqual(byName.isHoverLeft[1]);
+    expect(byName.isHoverRight2[0]).toBeGreaterThanOrEqual(byName.isHoverRight[0]);
+    expect(byName.isHoverRight2[1]).toBeLessThanOrEqual(byName.isHoverRight[1]);
   });
 
   it("isHovercenter keeps the file's lowercase spelling", () => {
     /* The file's own internal name — the Recticle precedent. Correcting it to
        isHoverCenter would silently stop the centre zone from firing. */
-    const names = GET_STARTED_CAT.hoverInputs.map((h) => h.name);
+    const names = GET_STARTED_CAT.declaredInputs.map((h) => h.name);
     expect(names).toContain("isHovercenter");
     expect(names).not.toContain("isHoverCenter");
   });
@@ -338,18 +414,19 @@ describe("hover inputs match the probe", () => {
   it("the rocket drives isHover and nothing else", () => {
     /* Recon suggested Smoke/NoSmoke inputs; the probe found they are TIMELINES.
        Pinned so nobody re-adds an input the file does not have. */
-    expect(GET_STARTED_ROCKET.hoverInputs.map((h) => h.name)).toEqual([
+    expect(GET_STARTED_ROCKET.declaredInputs.map((h) => h.name)).toEqual([
       "isHover",
     ]);
   });
 
   it("the R logo is autonomous — no inputs to drive", () => {
-    expect(R_LOGO_SHUFFLE.hoverInputs).toEqual([]);
+    expect(R_LOGO_SHUFFLE.declaredInputs).toEqual([]);
     expect(R_LOGO_SHUFFLE.paintsOwnLabel).toBe(false);
+    expect(R_LOGO_SHUFFLE.pointer).toBe("none");
   });
 
-  it("pointer movement sets exactly one zone at a time", () => {
-    const inputs = GET_STARTED_CAT.hoverInputs.map((h) => ({
+  it("pointer movement engages the right zones and clears on leave", () => {
+    const inputs = GET_STARTED_CAT.declaredInputs.map((h) => ({
       name: h.name,
       value: false,
     }));
@@ -371,8 +448,10 @@ describe("hover inputs match the probe", () => {
       "isHovercenter",
     ]);
 
+    /* Far right engages BOTH the plain and the extreme lean — the nested model. */
     move(95);
-    expect(inputs.filter((i) => i.value).map((i) => i.name)).toEqual([
+    expect(inputs.filter((i) => i.value).map((i) => i.name).sort()).toEqual([
+      "isHoverRight",
       "isHoverRight2",
     ]);
 

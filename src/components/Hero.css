@@ -58,19 +58,29 @@
   color: var(--text-muted);
 }
 
-/* Reserved space for the rocket's overflow, so nothing shifts when the canvas
-   arrives and the art never collides with the proof line above or the status
-   line below. Tuned against the rendered page at 1280/1440/1680. */
+/* NO RESERVED SPACE. The canvases are absolutely positioned, so they cannot
+   shift layout and nothing needs to make room for them. An earlier version
+   reserved 210px above and below this row "for the overflow" and made the hero
+   1044px against a 620px pre-Rive baseline — 68% taller, all of it dead.
+
+   The margin here is rhythm, not reservation: 24px of it plus the stack's own
+   24px gap puts the CTA row 48px under the proof line, and the status line sits
+   24px under the CTAs on the stack gap alone. */
 .hero__ctas {
-  /* The rocket artboard is 500px tall centred on a ~40px button, so it reaches
-     ~230px above and below the row. Measured at 1280/1440/1680: 150px left the
-     art overlapping the proof line by 52px. */
-  --rocket-clearance: 210px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-4);
-  margin-block: var(--rocket-clearance);
+  margin-top: var(--space-6);
+}
+
+/* The rocket's canvas is 500px wide and paints over this button. It is inert to
+   pointers today (the rocket ended up on the manual model), so this lift is
+   insurance rather than a fix: if any CTA canvas is ever switched to the
+   listeners model it would otherwise swallow the neighbouring button's clicks.
+   Verified in the browser with elementFromPoint at the secondary's centre. */
+.hero__ctas .rive-button[data-variant="secondary"] {
+  z-index: 1;
 }
 
 .hero__status {
@@ -138,11 +148,7 @@
     padding: var(--space-8) 0;
   }
 
-  /* The rocket is rendered at its natural 500px; on a narrow viewport that
-     needs less vertical reservation than it does on desktop, because the
-     surrounding copy has already stacked taller. */
   .hero__ctas {
-    --rocket-clearance: 110px;
     flex-direction: column;
     width: 100%;
   }

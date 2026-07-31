@@ -56,9 +56,10 @@
 /* ------------------------------------------------------------ canvas layer */
 
 .rive-button__canvas {
-  /* Never a pointer target. The button element is the hitbox; this layer only
-     paints. Without it, a 500x500 transparent canvas would swallow hovers for
-     the DotField beneath and block text selection around the CTA. */
+  /* DEFAULT: never a pointer target. The button is the hitbox and this layer
+     only paints, so a 500x500 transparent canvas cannot swallow hovers meant
+     for the DotField or block text selection around the CTA.
+     A file that carries its own listeners overrides this — see below. */
   pointer-events: none;
   display: block;
   width: var(--rive-button-w);
@@ -75,14 +76,33 @@
   opacity: 1;
 }
 
-/* THE OVERFLOW PATTERN: out of flow, centred on the button, so a canvas many
-   times the button's size costs zero layout and shifts nothing. */
+/* THE OVERFLOW PATTERN: out of flow and AIMED at the button, so a canvas many
+   times the button's size costs zero layout and can shift nothing. `left/top:
+   50%` puts the canvas's own origin on the button's centre; the translate then
+   pulls the canvas back by its anchor, so the anchor point is what lands there.
+   anchorY 0.2 (cat) hangs the art below; 0.78 (rocket) rides it above. */
 .rive-button__canvas[data-layout="overflow"] {
   position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(
+    calc(-1 * var(--rive-anchor-x, 50%)),
+    calc(-1 * var(--rive-anchor-y, 50%))
+  );
   z-index: 0;
+}
+
+/* A file with its own pointer listeners must RECEIVE events — the runtime binds
+   them to this canvas, and with `pointer-events: none` they would never fire.
+   Safe because the canvas is a child of the <a>/<button>, so a click on the art
+   activates the CTA and keyboard activation is untouched.
+
+   The cost, and it is real: this element intercepts pointer events across its
+   whole box, including transparent regions, so hero copy underneath it is not
+   selectable. Only the rocket is in this mode. A sibling CTA that the canvas
+   overlaps is kept clickable explicitly — see .hero__ctas in Hero.css. */
+.rive-button__canvas[data-pointer="listeners"] {
+  pointer-events: auto;
 }
 
 /* A small mark in normal flow instead — the R logo beside its DOM label. */

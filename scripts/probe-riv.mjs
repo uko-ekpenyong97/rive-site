@@ -86,6 +86,43 @@ function describeInputs(runtime, smDef, abDef) {
   }
 }
 
+/**
+ * Does this state machine carry its own POINTER LISTENERS?
+ *
+ * This is the question that decides an integration's pointer model, and it is
+ * not answerable from the file's shape names. `get-started-cat.riv` contains
+ * shapes literally called Hitbox_left / Hitbox_right / Hitbox_left2 /
+ * Hitbox_right2 and has NO listeners; `get-started-rocket.riv` contains no
+ * hitbox-named shape and HAS them. Reading the names would have got both files
+ * backwards, which is the whole reason this is probed rather than assumed.
+ *
+ * A machine with listeners drives itself from canvas-relative pointer events —
+ * the canvas must receive them (`pointer-events: auto`) and nothing should write
+ * its inputs by hand. A machine without listeners has to be driven, if it has
+ * inputs at all.
+ *
+ * `hasListeners` is the same runtime helper rive.js itself uses to decide
+ * whether to attach pointer handlers, called the same way (`hasListeners(smi)`).
+ */
+function describeListeners(runtime, smDef, ab) {
+  try {
+    const smi = new runtime.StateMachineInstance(smDef, ab);
+    try {
+      /* Advance once so the machine resolves its initial state before asking. */
+      if (smi.advanceAndApply) smi.advanceAndApply(0);
+      return runtime.hasListeners(smi);
+    } finally {
+      try {
+        smi.delete();
+      } catch {
+        /* best effort */
+      }
+    }
+  } catch {
+    return null;
+  }
+}
+
 /** Best-effort: property shape differs across runtime versions. */
 function describeProperties(viewModel) {
   try {
@@ -146,6 +183,9 @@ export async function probe(path) {
       /* smName -> [{name, type}] | null (could not read). Kept beside the name
          list rather than replacing it, so existing callers are unaffected. */
       inputs: {},
+      /* smName -> boolean | null. Decides the pointer model — see
+         describeListeners. */
+      listeners: {},
     };
     for (let a = 0; a < ab.animationCount(); a++) {
       const anim = ab.animationByIndex(a);
@@ -157,10 +197,20 @@ export async function probe(path) {
         seconds: anim.fps ? Number((anim.duration / anim.fps).toFixed(4)) : null,
       });
     }
+    /* Listeners need a real artboard INSTANCE, not the file-level definition. */
+    let abInstance = null;
+    try {
+      abInstance = i === 0 ? file.defaultArtboard() : null;
+    } catch {
+      abInstance = null;
+    }
     for (let s = 0; s < ab.stateMachineCount(); s++) {
       const smDef = ab.stateMachineByIndex(s);
       artboard.stateMachines.push(smDef.name);
       artboard.inputs[smDef.name] = describeInputs(runtime, smDef, ab);
+      artboard.listeners[smDef.name] = abInstance
+        ? describeListeners(runtime, smDef, abInstance)
+        : null;
     }
     result.artboards.push(artboard);
   }
@@ -205,6 +255,12 @@ function report(r) {
           );
         } else if (inputs) {
           line.push(`        ${sm}: no inputs`);
+        }
+        const listens = ab.listeners?.[sm];
+        if (listens !== undefined && listens !== null) {
+          line.push(
+            `        ${sm}: listeners ${listens ? "YES — file drives itself from pointer events" : "no — must be driven, if it has inputs"}`,
+          );
         }
       }
     }

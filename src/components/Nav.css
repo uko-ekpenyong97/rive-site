@@ -59,16 +59,26 @@
   color: var(--text-accent);
 }
 
-/* The cat's 269×150 artboard is centred on a ~40px-tall button, so most of it
-   paints above the nav row. It costs no layout (the canvas is out of flow), but
-   it must paint OVER the neighbouring nav items rather than under them. */
+/* The cat's 269×150 artboard is anchored near its own top (anchorY 0.2), so the
+   art hangs DOWNWARD out of the nav bar and over the hero beneath it. The button
+   itself stays entirely inside the nav row — only paint leaves it, never layout,
+   because the canvas is absolutely positioned.
+
+   The nav therefore has to sit above the hero in paint order, or the cat would
+   be covered by the hero's own content as it hangs into it. */
+.nav {
+  position: relative;
+  z-index: 2;
+}
+
 .nav__cta {
   z-index: 2;
 }
 
 /* Nothing in the nav may clip: the whole point of the overflow pattern is that
-   the animation leaves the button's box. Stated rather than relied upon, since
-   a future `overflow: hidden` here would silently crop the cat to a rectangle. */
+   the animation leaves the button's box, and here it leaves the nav bar too.
+   Stated rather than relied upon, since a future `overflow: hidden` on either of
+   these would silently crop the cat to a rectangle. */
 .nav,
 .nav__right {
   overflow: visible;

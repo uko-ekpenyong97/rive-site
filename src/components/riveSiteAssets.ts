@@ -55,7 +55,7 @@
  *     lookup keyed on state-machine name will resolve the wrong artboard.
  * ────────────────────────────────────────────────────────────────────────── */
 
-/** A boolean state-machine input driven by pointer hover. */
+/** A boolean state-machine input the file declares for hover. */
 export interface RiveHoverInput {
   name: string;
   /**
@@ -75,11 +75,34 @@ export interface RiveSiteAsset {
   height: number;
   bytes: number;
   /**
-   * Hover inputs confirmed by probe. EMPTY means the file is autonomous — it
-   * has no inputs at all and simply plays. Never invent an input here: the
-   * probe is the source of truth.
+   * Hover-related inputs the file DECLARES, confirmed by probe. Present so
+   * `check:assets` can verify they still exist in the committed bytes — it does
+   * NOT mean we write them. `pointer` decides that. Never invent an input here.
    */
-  hoverInputs: RiveHoverInput[];
+  declaredInputs: RiveHoverInput[];
+  /**
+   * How pointer input reaches the machine. Decided by the probe's
+   * `hasListeners`, never by taste, and asserted against the committed bytes by
+   * `check:assets`:
+   *
+   * "listeners" — the file carries its own pointer listeners and hit shapes, so
+   *   it drives itself from canvas-relative events. The canvas takes
+   *   `pointer-events: auto` and we write NOTHING: the art and the hitboxes are
+   *   the same file, so the mapping is correct by construction. Driving inputs
+   *   by hand here fights the file.
+   * "manual" — no listeners, but inputs exist. Driven from the BUTTON's own
+   *   hover (not the wrapper, not the canvas), so a pointer outside the button
+   *   provokes nothing.
+   * "none" — no listeners and no inputs. Autonomous; it just plays.
+   */
+  pointer: "listeners" | "manual" | "none";
+  /**
+   * Set ONLY when the probe reports listeners but they are measurably inert, so
+   * the file has to be driven manually anyway. It exists to keep that an
+   * explicit, reviewed claim: `check:assets` otherwise fails any "manual" model
+   * on a file that has listeners.
+   */
+  listenersInert?: boolean;
   /**
    * The file paints its own label, so the DOM label is only a fallback and is
    * hidden once the canvas is live. When false, we always render the label.
@@ -100,6 +123,21 @@ export interface RiveSiteAsset {
    * .riv never distorts. Defaults to the artboard's own width.
    */
   renderWidth?: number;
+  /**
+   * Where the BUTTON's centre sits inside the canvas, as fractions of the canvas
+   * box. This is what aims the overflow: the canvas is absolutely positioned so
+   * that this point lands on the button's centre, and everything else hangs
+   * wherever the art wants it.
+   *
+   * anchorY < 0.5 → the art hangs mostly BELOW the button (the cat).
+   * anchorY > 0.5 → the art rides mostly ABOVE it (the rocket).
+   *
+   * Absolute positioning means none of it is in flow, so no amount of overflow
+   * can move layout or cause a shift — which is why there is no reservation
+   * anywhere in this system.
+   */
+  anchorX?: number;
+  anchorY?: number;
 }
 
 /**
@@ -124,12 +162,39 @@ export const GET_STARTED_CAT: RiveSiteAsset = {
   height: 150,
   bytes: 12_747,
   layout: "overflow",
-  hoverInputs: [
+  /* PROBED: hasListeners = false. The file contains shapes named Hitbox_left /
+     Hitbox_right / Hitbox_left2 / Hitbox_right2, which read exactly like
+     listener targets and are NOT — nothing in the machine listens. Driving the
+     five bools from the button's own hover is therefore correct, and a pointer
+     outside the button provokes nothing. */
+  pointer: "manual",
+  /* Canvas top sits a little above the button; the cat hangs below and around,
+     which is how it overflows downward out of the nav bar. */
+  anchorX: 0.5,
+  anchorY: 0.2,
+  /* ZONES ARE NESTED, NOT EXCLUSIVE — measured, and it matters a great deal.
+     `isHoverLeft2` is the EXTREME lean and only fires while `isHoverLeft` is
+     also set; the "2" inputs escalate the plain ones rather than replacing them.
+     Non-transparent pixel delta vs idle, by pointer position across the button:
+
+       x            0.05  0.15  0.30  0.50  0.70  0.85  0.95
+       exclusive       0     0    13     0    10     0     0
+       nested        152   172    19     0    14   176   167
+
+     Exclusive zones left three of the five inputs doing literally nothing (sd
+     0.000 — the same rendered frame as idle), so the cat leaned two ways
+     instead of four and the extremes never appeared at all.
+
+     `isHovercenter` measures as no change, which is the correct outcome rather
+     than a dead input: centre is the neutral forward pose, visually the same as
+     idle. It is wired so the machine is told explicitly, instead of the cat
+     holding a lean when the pointer reaches the middle. */
+  declaredInputs: [
     { name: "isHoverLeft2", zone: [0, 0.2] },
-    { name: "isHoverLeft", zone: [0.2, 0.4] },
+    { name: "isHoverLeft", zone: [0, 0.4] },
     /* Lowercase "c" — the file's spelling. Do not "fix". */
     { name: "isHovercenter", zone: [0.4, 0.6] },
-    { name: "isHoverRight", zone: [0.6, 0.8] },
+    { name: "isHoverRight", zone: [0.6, 1] },
     { name: "isHoverRight2", zone: [0.8, 1] },
   ],
   paintsOwnLabel: true,
@@ -157,7 +222,31 @@ export const GET_STARTED_ROCKET: RiveSiteAsset = {
   height: 500,
   bytes: 45_161,
   layout: "overflow",
-  hoverInputs: [{ name: "isHover", zone: [0, 1] }],
+  /* PROBED: hasListeners = true — despite carrying no hitbox-named shape, the
+     inverse of the cat. But MEASURED: those listeners are INERT in this
+     integration, so the file is driven manually. See `listenersInert`.
+
+     The A/B, same build, only the model changed (500x500 canvas, non-transparent
+     pixel count over 5 trials of 10 frames):
+       pointer: "listeners"  idle 577 ±11.4 → hover 584   Δ 7   (inside noise)
+       pointer: "manual"     idle 577 ±11.5 → hover 3405  Δ 2828
+     The canvas was confirmed hit-testable in both (`pointer-events: auto`,
+     elementFromPoint returns the canvas) and the events were real CDP mouse
+     input, not JS-dispatched — so this is not a plumbing failure on our side.
+     `hasListeners` is necessary but not sufficient: it reports that listener
+     objects exist, not that they drive anything reachable. */
+  pointer: "manual",
+  /**
+   * The file reports listeners that do not fire. Recorded explicitly so
+   * `check:assets` can tell this apart from someone quietly mis-wiring a
+   * listeners file — without this flag, a "manual" model on a file that has
+   * listeners fails the parity check, which is the behaviour we want by default.
+   */
+  listenersInert: true,
+  /* The button sits in the canvas's lower third, so the rocket rides above it. */
+  anchorX: 0.5,
+  anchorY: 0.78,
+  declaredInputs: [{ name: "isHover", zone: [0, 1] }],
   paintsOwnLabel: true,
 };
 
@@ -184,7 +273,10 @@ export const R_LOGO_SHUFFLE: RiveSiteAsset = {
      label, not a button face with animation spilling around it. */
   layout: "inline",
   renderWidth: 22,
-  hoverInputs: [],
+  /* PROBED: hasListeners = false, and no inputs either. Nothing to drive and
+     nothing to receive — it just plays. */
+  pointer: "none",
+  declaredInputs: [],
   paintsOwnLabel: false,
 };
 

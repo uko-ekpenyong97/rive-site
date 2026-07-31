@@ -100,7 +100,17 @@ function glyphConfigs() {
 function siteConfigs() {
   const text = readFileSync(resolve(ROOT, SITE), "utf8");
   const out = [];
-  for (const block of text.split(/^export const /m).slice(1)) {
+  for (const raw of text.split(/^export const /m).slice(1)) {
+    /* STRIP COMMENTS FIRST. The maps here carry long explanatory blocks that
+       quote config verbatim — one of them contains the line
+       `pointer: "listeners"  idle 577 → hover 584` as evidence in an A/B table.
+       Matching against the raw text read that comment as the configuration and
+       cheerfully reported the wrong pointer model as verified: a checker
+       agreeing with prose instead of code, which is precisely what this script
+       exists to stop. */
+    const block = raw
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/^\s*\/\/.*$/gm, " ");
     const src = block.match(/src:\s*"([^"]+\.riv)"/);
     const artboard = block.match(/artboard:\s*"([^"]+)"/);
     const stateMachine = block.match(/stateMachine:\s*"([^"]+)"/);
@@ -111,7 +121,7 @@ function siteConfigs() {
        while printing success is the precise failure mode this script exists to
        prevent — see the header. */
     const inputs = [];
-    const open = block.indexOf("hoverInputs:");
+    const open = block.indexOf("declaredInputs:");
     if (open !== -1) {
       const from = block.indexOf("[", open);
       let depth = 0;
@@ -124,13 +134,19 @@ function siteConfigs() {
         }
       }
       if (end === -1) {
-        fail(`${SITE}: unterminated hoverInputs array — cannot verify inputs`);
+        fail(`${SITE}: unterminated declaredInputs array — cannot verify inputs`);
         continue;
       }
       for (const m of block.slice(from, end).matchAll(/name:\s*"([^"]+)"/g)) {
         inputs.push(m[1]);
       }
     }
+    const pointer = block.match(/pointer:\s*"(listeners|manual|none)"/);
+    if (!pointer) {
+      fail(`${SITE}: an asset declares no pointer model — cannot verify wiring`);
+      continue;
+    }
+    const inert = /listenersInert:\s*true/.test(block);
     out.push({
       where: SITE,
       /* "/rive/site/x.riv" is a URL path, rooted at public/. */
@@ -138,6 +154,8 @@ function siteConfigs() {
       artboard: artboard[1],
       stateMachine: stateMachine[1],
       inputs,
+      pointer: pointer[1],
+      listenersInert: inert,
     });
   }
   return out;
@@ -245,6 +263,46 @@ for (const cfg of configs) {
     inputNote = cfg.inputs.length
       ? `  inputs ${cfg.inputs.length}/${names.length}`
       : `  no inputs (autonomous)`;
+  }
+
+  /* POINTER-MODEL PARITY. The single most consequential fact about one of these
+     files is whether it carries its own pointer listeners, and it is not
+     guessable: get-started-cat.riv has shapes called Hitbox_* and NO listeners,
+     get-started-rocket.riv has listeners and no such shape. Wiring the wrong
+     model gives a button that looks right and reacts wrongly (or not at all),
+     which nothing else in the build can see. */
+  if (cfg.pointer) {
+    const listens = hit.listeners?.[cfg.stateMachine];
+    if (listens === null || listens === undefined) {
+      fail(
+        `${rel}: could not read listeners for "${cfg.stateMachine}" — cannot ` +
+          `verify pointer model "${cfg.pointer}"\n      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+    /* `hasListeners` is necessary but not sufficient: get-started-rocket.riv
+       reports listeners that measurably never fire (see riveSiteAssets.ts for
+       the A/B). So a "manual" model on a file WITH listeners is allowed, but
+       only when the config says so out loud via `listenersInert`. The dangerous
+       direction — claiming "listeners" on a file that has none, which wires up
+       nothing at all — is always a failure. */
+    const want = listens ? "listeners" : cfg.inputs.length ? "manual" : "none";
+    const allowed =
+      cfg.pointer === want ||
+      (listens && cfg.pointer === "manual" && cfg.listenersInert);
+    if (!allowed) {
+      fail(
+        `${rel}: config says pointer: "${cfg.pointer}" but the file ` +
+          `${listens ? "HAS" : "has NO"} listeners and declares ` +
+          `${cfg.inputs.length} input(s) — expected "${want}"` +
+          (listens && cfg.pointer === "manual"
+            ? ` (set listenersInert: true if the listeners are measurably inert)`
+            : "") +
+          `\n      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+    inputNote += `  pointer:${cfg.pointer}${cfg.listenersInert ? " (listeners inert)" : ""}`;
   }
 
   const sm = cfg.stateMachine ? `  sm ${cfg.stateMachine}` : "";
