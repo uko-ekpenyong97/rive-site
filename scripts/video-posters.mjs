@@ -52,11 +52,6 @@ const OUT = new URL("../public/video/use-cases/posters/", import.meta.url)
 /**
  * Per-clip grab point, in seconds. Chosen by looking at rendered candidates,
  * not by a rule — see the header note about product-ui.
- *
- * campaigns.mp4 is deliberately absent: its tile is not wired (the Spotify
- * Wrapped clip would reverse the Strava re-anchor recorded in the spec's
- * Decision log), so generating a poster for it would imply otherwise. The .mp4
- * stays downloaded so the decision is reversible without a re-fetch.
  */
 const GRABS = [
   { file: "product-ui.mp4", at: 1.9 }, // device lit; t=0 is the screen OFF
@@ -64,6 +59,12 @@ const GRABS = [
   { file: "websites.mp4", at: 0.1 },
   { file: "automotive.mp4", at: 2.6 }, // cluster fully booted
   { file: "film-tv.mp4", at: 0.1 },
+  /* The narrowest window of the six. t=0 is black; ~2.05s catches the title
+     card mid-wipe; ~3.5s is an empty teal transition; ~4.06s has the stats
+     mid-animation. 2.5s is the settled "nobody did it quite like you" frame —
+     brand-orange, phone legible, and it states the thesis in words, which is
+     what a permanent reduced-motion still should do. */
+  { file: "campaigns.mp4", at: 2.5 },
 ];
 
 /* Tile posters sit in a few-hundred-px slot, so they get a tighter class than

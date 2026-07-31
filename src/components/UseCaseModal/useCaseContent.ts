@@ -238,19 +238,38 @@ export interface UseCaseQuote {
  *     `-vf "crop=iw:ih*0.865:0:ih*0.075"` on the 924×600 source — and strip
  *     product-ui's audio track in the same pass.
  *
- *   campaigns.mp4  ← https://framerusercontent.com/assets/8aJN4DoBcfmZ8aVXsC2lqfLDik.mp4
- *     DOWNLOADED BUT DELIBERATELY NOT WIRED. It is Spotify Wrapped — a phone on
- *     lime green, "And these 5 were extra special." Two reasons it has no
- *     `tileMedia` entry:
- *       1. It reverses a locked decision. The Campaigns modal was re-anchored on
- *          Strava (Decision log, 2026-07-26) precisely so Spotify material stays
- *          reserved for the CaseStudies section, where that story already ships
- *          with its own poster.
- *       2. Geometry. The campaigns cell is `wide`, roughly a 3.7:1 media slot
- *          against a 4:3 source, so `cover` discards ~64% of the height and the
- *          phone becomes an unreadable horizontal band.
- *     The file stays committed so the decision is reversible without a re-fetch;
- *     the cell keeps its labelled MEDIA placeholder in the meantime.
+ *   campaigns.mp4  ← https://framerusercontent.com/assets/QiGJHCv8kOmhp5xw2Zp5wKSNXzY.mp4
+ *     Strava Year in Sport, on a phone against Strava orange. The clip has a
+ *     three-beat arc, which is why it earns this slot: a "STRAVA YEAR IN SPORT"
+ *     title card (~1.0–2.0s), then "This year, over 150 million people got
+ *     moving on Strava. But nobody did it quite like you." (~2.5s), then the
+ *     personalized stats themselves in teal — 256 mi, 30h 35m, 121 mi, 99.2 mi
+ *     (~4.0–4.5s). It states personalization-at-scale and then demonstrates it.
+ *
+ *     ⚠ DO NOT "CORRECT" THIS BACK TO LINKEDIN. rive.app/use-cases/product-design
+ *     serves this clip under a card titled "LinkedIn Year in Review". That is
+ *     Rive's own mislabel: the footage is verified Strava frame-by-frame
+ *     (2026-07-31) — Strava orange, the Strava wordmark, and the "YEAR IN SPORT"
+ *     lockup. The origin card's label is wrong; the asset is right.
+ *
+ *     No audio track (the only one of the six besides product-ui to be checked
+ *     explicitly — `hdlr` reports `vide` alone), so the future ffmpeg pass has
+ *     nothing to strip here.
+ *
+ *     REPLACED, 2026-07-31: this path previously held Spotify Wrapped, from
+ *     https://framerusercontent.com/assets/8aJN4DoBcfmZ8aVXsC2lqfLDik.mp4 —
+ *     recorded so it stays recoverable without carrying dead bytes in the repo
+ *     (git history has the old file). It was held rather than wired because it
+ *     would have reversed the Strava re-anchor; the Strava asset resolves that
+ *     by agreeing with the modal instead of fighting it.
+ *
+ *     Geometry: 1066×600 into a measured 922×246 slot (3.748:1) means cover
+ *     discards 52.6% of the source height — the steepest crop of the six. It
+ *     survives because the phone is centred and the type is large. The anchor
+ *     was chosen by rendering six candidates at true tile size: 50% keeps the
+ *     punchline but clips the title card's route glyph; 35% and 42% fix the
+ *     title card but cut "like you." mid-sentence, which reads as broken rather
+ *     than cropped. 46% is the only one that holds all three beats.
  * ────────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -930,12 +949,31 @@ export const USE_CASES: UseCaseContent[] = [
      * SOURCING: the Strava Year in Sport figures come from public statements by
      * Rive's co-founder. There is no Rive case-study page for it, so nothing
      * here links Strava — attributing these numbers to a case study would be
-     * inventing a source. No Strava artwork is used either; it is their IP.
+     * inventing a source.
+     *
+     * UPDATED 2026-07-31 — this block used to add "No Strava artwork is used
+     * either; it is their IP." That was written when no such asset had
+     * surfaced. It has: the closed tile now runs Strava Year in Sport footage
+     * published by Rive on their own use-cases page as customer showcase
+     * material — the same sourcing basis as the other five tiles, and the same
+     * basis the CaseStudies posters ship on. The sentence is amended rather
+     * than deleted so the change of basis stays visible.
+     *
      * Spotify and LinkedIn material stays reserved for the CaseStudies section.
      *
      * This is the first lite modal to carry a pull quote. That is intentional:
      * the founder quote IS the anchor proof here, not decoration.
+     *
+     * The tile below is the CELL, not the sheet — this modal stays heroless.
      * ────────────────────────────────────────────────────────────────────── */
+    /* Steepest crop of the six (52.6% of source height discarded) and the only
+       anchor that survives all three beats of the clip. See the source map. */
+    tileMedia: {
+      type: "video",
+      src: "/video/use-cases/campaigns.mp4",
+      poster: "/video/use-cases/posters/campaigns.avif",
+      objectPosition: "50% 46%",
+    },
     proof: [
       {
         source: "Strava",

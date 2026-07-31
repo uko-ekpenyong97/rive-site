@@ -63,11 +63,13 @@ const CELLS: {
   {
     slug: "campaigns",
     size: "wide",
-    /* Retitled when the modal was anchored on Strava Year in Sport: the cell
-       used to lead with Spotify Wrapped and its numbers, which both mismatched
-       the modal behind it and kept Spotify material outside CaseStudies, where
-       that story is reserved. */
-    title: "Wrapped moments, made personal",
+    /* Retitled twice, both times to catch up with the modal behind it. First
+       (2026-07-26) off Spotify Wrapped and its numbers, when the modal was
+       re-anchored on Strava. Then again (2026-07-31) when the tile started
+       running Strava footage and "Wrapped" — Spotify's word — was visibly wrong
+       over it. The personalization-at-scale angle is what both titles were
+       protecting; only the borrowed brand word is gone. */
+    title: "Recaps that know who you are",
     description: "Interactive year-in-review campaigns, personalized for millions.",
     gridColumn: "1 / -1",
     gridRow: 3,

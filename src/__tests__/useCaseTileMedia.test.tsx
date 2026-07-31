@@ -26,6 +26,7 @@ import {
   USE_CASES,
   getUseCase,
   type TileMedia,
+  type UseCaseContent,
 } from "../components/UseCaseModal/useCaseContent";
 import { count } from "./helpers";
 
@@ -37,30 +38,49 @@ function tileMediaOf(slug: string): TileMedia {
   return media;
 }
 
-/* Wired deliberately, and campaigns deliberately is not — pinned as an exact
-   set so neither a new tile nor a quietly-enabled campaigns slips through. */
-const WIRED = ["product-ui", "game-ui", "websites", "automotive", "film-tv-broadcast"];
+/* Pinned as an exact set, in cell order, so a new tile cannot appear without a
+   deliberate edit here. Campaigns joined on 2026-07-31 when the Spotify clip
+   was replaced with Strava Year in Sport — the asset that agrees with the
+   modal's re-anchor instead of reversing it. Every use case now carries media. */
+const WIRED = [
+  "product-ui",
+  "game-ui",
+  "websites",
+  "automotive",
+  "film-tv-broadcast",
+  "campaigns",
+];
 
 const bento = renderToString(<UseCaseBento />);
 
 /* ───────────────────────────────────────────────────────────────────────── */
 describe("which cells carry tile media", () => {
-  it("exactly the five wired use cases", () => {
+  it("every use case, in cell order", () => {
     const wired = USE_CASES.filter((c) => c.tileMedia).map((c) => c.slug);
     expect(wired).toEqual(WIRED);
   });
 
-  /* Not an oversight. The clip is Spotify Wrapped, which would reverse the
-     2026-07-26 Strava re-anchor that exists to keep Spotify material inside
-     CaseStudies. Asserted so re-enabling it has to be a deliberate edit here. */
-  it("campaigns deliberately has none", () => {
-    expect(getUseCase("campaigns")?.tileMedia).toBe(undefined);
+  /* The field stays OPTIONAL even though nothing currently omits it. Campaigns
+     spent a session legitimately without media, and a lite modal designed
+     without a tile is a state this model should keep being able to express —
+     the absent-asset path is covered against a standalone cell below. */
+  it("tileMedia is optional, not required", () => {
+    const optional: UseCaseContent = {
+      slug: "x",
+      tier: "lite",
+      eyebrow: "X",
+      name: "X",
+      claim: "X",
+      proof: [{ source: "s", claim: "c" }],
+      runtimes: [],
+    };
+    expect(optional.tileMedia).toBe(undefined);
   });
 });
 
 /* ───────────────────────────────────────────────────────────────────────── */
 describe("asset present → tile video renders", () => {
-  it("five tiles render a video element", () => {
+  it("every tile renders a video element", () => {
     expect(count(bento, /<video/g)).toBe(WIRED.length);
   });
 
@@ -109,6 +129,12 @@ describe("asset present → tile video renders", () => {
 
 /* ───────────────────────────────────────────────────────────────────────── */
 describe("asset absent → labelled MEDIA placeholder", () => {
+  /* THE FALLBACK'S ONLY HOME, since 2026-07-31. Until campaigns was wired, the
+     real section carried one media-less cell and this behaviour could be
+     observed there. It cannot any more — every cell has media — so the guard
+     lives against a standalone cell instead. That is a deliberate relocation,
+     not a deleted check: `media` is still an optional prop, the placeholder is
+     still what BentoCell renders without one, and this is what proves it. */
   const withoutMedia = renderToString(
     <BentoCell eyebrow="CAMPAIGNS" title="No tile media" href="#" />,
   );
@@ -122,11 +148,16 @@ describe("asset absent → labelled MEDIA placeholder", () => {
     expect(withoutMedia.includes("<video")).toBe(false);
   });
 
-  it("campaigns' cell in the real section still shows it", () => {
-    /* Six cells, five videos — so exactly one placeholder survives. */
-    expect(count(bento, /bento-cell__placeholder/g)).toBe(
-      USE_CASES.length - WIRED.length,
+  it("the placeholder stays hidden from the accessible name", () => {
+    /* Otherwise every media-less cell would read "…MEDIA" out loud. */
+    expect(withoutMedia).toMatch(
+      /<span class="bento-cell__placeholder" aria-hidden="true">/,
     );
+  });
+
+  it("no placeholder survives in the real section — all six wired", () => {
+    expect(count(bento, /bento-cell__placeholder/g)).toBe(0);
+    expect(USE_CASES.length).toBe(WIRED.length);
   });
 });
 
@@ -222,6 +253,11 @@ describe("crop + anchor pinned as an exact set", () => {
       websites: "50% 60%",
       automotive: null,
       "film-tv-broadcast": null,
+      /* The steepest crop of the six — 52.6% of source height discarded into a
+         measured 3.748:1 slot. Six anchors were rendered at true tile size: 50%
+         clips the title card's route glyph, 35% and 42% cut "like you."
+         mid-sentence. 46% is the only one that holds all three beats. */
+      campaigns: "50% 46%",
     });
   });
 
@@ -237,6 +273,9 @@ describe("crop + anchor pinned as an exact set", () => {
       /* The source is a browser-window capture: YouTube chrome occupies ~7.2%
          of the top and ~6.0% of the bottom. These add a safety margin. */
       "film-tv-broadcast": { top: 0.075, bottom: 0.065 },
+      /* Steep crop, but a clean render — nothing burnt into the frame to trim,
+         so the anchor does all the work. */
+      campaigns: null,
     });
   });
 
