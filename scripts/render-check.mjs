@@ -476,6 +476,79 @@ try {
       );
 
   await send("Emulation.setEmulatedMedia", { features: [] });
+
+  /* ── ExpertsStrip ───────────────────────────────────────────────────────
+     Nine real people's public listings. The checks are that nobody's card is
+     mislaid and that the taglines truncate rather than blowing the grid open. */
+  console.log("");
+  /* Pin the viewport: an earlier check narrows it to 375px and a stale override
+     silently turned this into a 2-column assertion that could never have caught
+     a broken desktop layout. */
+  await send("Emulation.setDeviceMetricsOverride", {
+    width: 1440,
+    height: 1000,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await evaluate("location.reload()");
+  await sleep(2000);
+  await evaluate(
+    "document.querySelector('.experts-strip')?.scrollIntoView({block:'center'})",
+  );
+  await sleep(600);
+
+  const experts = await evaluate(`(() => {
+    const section = document.querySelector('.experts-strip');
+    if (!section) return null;
+    const cards = [...section.querySelectorAll('.experts-strip__card')];
+    const overflowing = cards.filter((c) => c.scrollWidth > c.clientWidth + 1);
+    const grid = section.querySelector('.experts-strip__grid');
+    return {
+      cards: cards.length,
+      images: section.querySelectorAll('img').length,
+      /* A tagline whose track grew to fit it never engages the ellipsis. */
+      cardOverflow: overflowing.length,
+      /* The section must not push past its own column. */
+      sectionOverflow: Math.max(0, Math.round(section.scrollWidth - section.clientWidth)),
+      columns: grid
+        ? getComputedStyle(grid).gridTemplateColumns.split(' ').length
+        : 0,
+      truncates: [...section.querySelectorAll('.experts-strip__tagline')]
+        .filter((t) => getComputedStyle(t).textOverflow === 'ellipsis').length,
+      viewport: document.documentElement.clientWidth,
+    };
+  })()`);
+
+  if (!experts) {
+    bad("ExpertsStrip: section not found");
+  } else {
+    experts.cards === 9
+      ? good(`ExpertsStrip: 9 cards`)
+      : bad(`ExpertsStrip: expected 9 cards, found ${experts.cards}`);
+
+    /* Nine into 3x3 with no ragged last row is the whole reason this is a grid
+       and not a scrolling row. */
+    experts.columns === 3
+      ? good("ExpertsStrip: 3 columns at desktop, so 3 even rows")
+      : bad(
+          `ExpertsStrip: ${experts.columns} columns at 1440px, expected 3 (viewport ${experts.viewport}px)`,
+        );
+
+    experts.images === 0
+      ? good("ExpertsStrip: no photographs, monograms only")
+      : bad(`ExpertsStrip: ${experts.images} image(s) — the no-photos rule broke`);
+
+    experts.sectionOverflow === 0 && experts.cardOverflow === 0
+      ? good("ExpertsStrip: nothing overflows its container")
+      : bad(
+          `ExpertsStrip: section overflow ${experts.sectionOverflow}px, ${experts.cardOverflow} card(s) overflowing`,
+        );
+
+    experts.truncates === 9
+      ? good("ExpertsStrip: every tagline is set to truncate")
+      : bad(`ExpertsStrip: ${experts.truncates} of 9 taglines truncate`);
+  }
+  await send("Emulation.clearDeviceMetricsOverride");
 } catch (err) {
   bad(err.message);
 } finally {

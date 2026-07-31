@@ -1,54 +1,122 @@
 .experts-strip {
   display: flex;
   flex-direction: column;
-}
-
-/* Small uppercase label — quieter than a SectionHeader eyebrow. */
-.experts-strip__heading {
-  margin: 0 0 var(--space-6);
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.experts-strip__grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-8);
-}
-
-/* Reuses the AudienceRails rail: top hairline (not left) + padding-top. */
-.experts-strip__col {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
   align-items: flex-start;
-  border-top: 1px solid var(--border-subtle);
-  padding-top: var(--space-4);
-}
-
-.experts-strip__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 18px;
-  line-height: 1.15;
-  color: var(--text-heading);
 }
 
 .experts-strip__line {
-  margin: 0;
+  margin: var(--space-4) 0 0;
+  max-width: 52ch;
   font-family: var(--font-body);
-  font-size: var(--font-size-body-sm);
+  font-size: var(--font-size-body);
   line-height: 1.5;
   color: var(--text-secondary);
 }
 
-/* ------------------------------------------------- Responsive: single column */
+/* Nine cards divide cleanly into 3x3 — no ragged last row, and no scrolling
+   mechanism. The page already carries two horizontally-drifting bands
+   (LogoMarquee, CommunityWall); a third would read as a tic, and this section
+   is meant to be among the lightest on the page. */
+.experts-strip__grid {
+  list-style: none;
+  margin: var(--space-8) 0 var(--space-6);
+  padding: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.experts-strip__card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* min-width: 0 lets the tagline's ellipsis actually engage — without it the
+     grid track grows to fit the longest line instead of truncating it. */
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-default);
+  text-decoration: none;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+/* Initials, not a photograph — see the note in ExpertsStrip.tsx. */
+.experts-strip__monogram {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.experts-strip__who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.experts-strip__name {
+  font-family: var(--font-body);
+  font-size: var(--font-size-body-sm);
+  color: var(--text-primary);
+}
+
+.experts-strip__tagline {
+  font-family: var(--font-body);
+  font-size: var(--font-size-caption);
+  color: var(--text-secondary);
+  /* One line, always. A two-line card here would make nine of them a wall. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+/* -------------------------------------------------------------- Interaction */
+
+/* The creator-goes-accent grammar from CommunityStrip: the person is what you
+   are reaching for, so the person is what lights up. */
+.experts-strip__card:hover,
+.experts-strip__card:focus-visible {
+  border-color: var(--border-default);
+  background: var(--surface-raised);
+}
+
+.experts-strip__card:hover .experts-strip__tagline,
+.experts-strip__card:focus-visible .experts-strip__tagline {
+  color: var(--text-accent);
+}
+
+.experts-strip__card:hover .experts-strip__monogram,
+.experts-strip__card:focus-visible .experts-strip__monogram {
+  color: var(--text-primary);
+}
+
+.experts-strip__card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- Responsive */
 
 @media (max-width: 1024px) {
+  .experts-strip__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
   .experts-strip__grid {
     grid-template-columns: 1fr;
   }
