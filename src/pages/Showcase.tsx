@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { DialRoot } from "dialkit";
 import "dialkit/styles.css";
 import Button, { type ButtonVariant } from "../components/Button";
 import BentoCell, { type BentoCellSize } from "../components/BentoCell";
+import TileVideo from "../components/TileVideo";
 import UseCaseBento from "../components/UseCaseBento";
 import {
   USE_CASES,
@@ -158,6 +159,7 @@ function Showcase() {
       </header>
 
       <ButtonSection />
+      <TileVideoSection />
       <BentoSection dials={dials} reducedMotion={reducedMotion} />
       <UseCaseModalSection
         dials={dials}
@@ -293,6 +295,73 @@ function ButtonRow({ variant }: { variant: ButtonVariant }) {
         </Button>
       </div>
     </>
+  );
+}
+
+/* ------------------------------------------------------------- TileVideo -- */
+
+/**
+ * Both states side by side, because the reduced-motion one is otherwise only
+ * reachable by changing an OS setting. The right-hand column is forced via the
+ * prop — the same escape hatch BentoCell's `state` gives the hover appearance.
+ */
+function TileVideoSection() {
+  const withMedia = USE_CASES.filter((c) => c.tileMedia);
+
+  return (
+    <section
+      style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}
+    >
+      <h2 style={sectionHeadingStyle}>TileVideo</h2>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "auto 420px 420px",
+          gap: "var(--space-6)",
+          alignItems: "center",
+          justifyContent: "start",
+        }}
+      >
+        <div />
+        <div style={labelStyle}>Autoplay loop</div>
+        <div style={labelStyle}>Reduced motion</div>
+
+        {withMedia.map((useCase) => (
+          <Fragment key={useCase.slug}>
+            <div style={labelStyle}>{useCase.slug}</div>
+            {[false, true].map((reduce) => (
+              <div
+                key={String(reduce)}
+                style={{
+                  height: 236,
+                  borderRadius: "var(--radius-md)",
+                  overflow: "hidden",
+                }}
+              >
+                {useCase.tileMedia && (
+                  <TileVideo media={useCase.tileMedia} reducedMotion={reduce} />
+                )}
+              </div>
+            ))}
+          </Fragment>
+        ))}
+
+        {/* The absent-media state is a real one: campaigns ships no tileMedia,
+            so its cell keeps the labelled placeholder. */}
+        <div style={labelStyle}>no tileMedia</div>
+        <div style={{ height: 236 }}>
+          <BentoCell
+            size="small"
+            eyebrow="CAMPAIGNS"
+            title="Falls back to the placeholder"
+            href="#"
+            style={{ height: "100%" }}
+          />
+        </div>
+        <div />
+      </div>
+    </section>
   );
 }
 

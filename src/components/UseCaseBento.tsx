@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import BentoCell from "./BentoCell";
 import SectionHeader from "./SectionHeader";
+import TileVideo from "./TileVideo";
 import { UseCaseModal } from "./UseCaseModal/UseCaseModal";
 import {
   getUseCase,
@@ -119,6 +120,18 @@ export function UseCaseBento({ dials, reducedMotion }: UseCaseBentoProps = {}) {
               title={cell.title}
               description={cell.description}
               href={content?.pageHref ?? "#"}
+              /* BentoCell already had a `media` slot; the tile loop fills it.
+                 A use case with no `tileMedia` (campaigns — see the source map
+                 in useCaseContent.ts) passes nothing and keeps the labelled
+                 placeholder, which is a real state here rather than a gap. */
+              media={
+                content?.tileMedia ? (
+                  <TileVideo
+                    media={content.tileMedia}
+                    reducedMotion={reducedMotion}
+                  />
+                ) : undefined
+              }
               onExpand={content ? () => setActive(content) : undefined}
               expandLabel={content?.name}
               onPointerEnter={content ? () => armPreload(content) : undefined}
