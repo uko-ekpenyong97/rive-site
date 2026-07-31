@@ -105,7 +105,20 @@ const STORIES: Story[] = [
        source; a centred crop sliced through them. This anchors low enough to
        show both without leaving dead background at the bottom edge. */
     objectPosition: "center 85%",
-    url: "https://rive.app/blog/how-brilliant-org-motivates-learners-with-rive-animations",
+    /* Their current Brilliant story — building the Koji tutor character —
+       replacing the older "motivates learners with Rive animations" post, which
+       still resolves but is no longer the one they lead with.
+
+       ONE STAT NOW OUTRUNS ITS LINK: "Rive > Lottie in their engineering
+       comparison" came from the OLD post, which carries a section titled
+       "Comparing Lottie and Rive". This post does not make that comparison —
+       the only "Lottie" on the page is the site nav. The claim is still true and
+       still Brilliant's own, but a reader who follows the link will not find it
+       there. Recorded rather than quietly left, because a stat whose evidence
+       has moved is the kind of thing that rots silently. The other two are
+       supported here directly: "millions of people" and "Brilliant runs on iOS,
+       Android, and the web". */
+    url: "https://rive.app/blog/brilliant-builds-its-math-and-coding-tutor-character-with-rive",
   },
 ];
 
