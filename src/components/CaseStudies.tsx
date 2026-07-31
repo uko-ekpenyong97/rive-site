@@ -98,7 +98,7 @@ const STORIES: Story[] = [
     stats: [
       { value: "Millions", label: "of learners" },
       { value: "1 file", label: "across iOS, Android & web" },
-      { value: "Rive > Lottie", label: "in their engineering comparison" },
+      { value: "Data binding", label: "drives Koji's speech from audio volume" },
     ],
     poster: brilliantPoster,
     /* The mascot and its "You got it!" bubble sit in the bottom-left of the
@@ -109,15 +109,18 @@ const STORIES: Story[] = [
        replacing the older "motivates learners with Rive animations" post, which
        still resolves but is no longer the one they lead with.
 
-       ONE STAT NOW OUTRUNS ITS LINK: "Rive > Lottie in their engineering
-       comparison" came from the OLD post, which carries a section titled
-       "Comparing Lottie and Rive". This post does not make that comparison —
-       the only "Lottie" on the page is the site nav. The claim is still true and
-       still Brilliant's own, but a reader who follows the link will not find it
-       there. Recorded rather than quietly left, because a stat whose evidence
-       has moved is the kind of thing that rots silently. The other two are
-       supported here directly: "millions of people" and "Brilliant runs on iOS,
-       Android, and the web". */
+       ALL THREE STATS ARE EVIDENCED BY THIS POST, which is the point of moving
+       the third one. "Rive > Lottie in their engineering comparison" came from
+       the OLD post and its section "Comparing Lottie and Rive"; the Koji post
+       makes no such comparison, so following the link would not have found it.
+       Replaced rather than left dangling. The post's own words:
+         millions      "used by millions of people"
+         one file      "build one high-fidelity character rig and use it
+                       everywhere" · "runs on iOS, Android, and the web"
+         data binding  "drove a Data Binding variable representing the volume of
+                       the audio" — how a character with no mouth reads as
+                       speaking, and the same contract DeveloperZone argues for
+                       two sections up. */
     url: "https://rive.app/blog/brilliant-builds-its-math-and-coding-tutor-character-with-rive",
   },
 ];
