@@ -19,12 +19,12 @@ const EXPECTED: Array<[name: string, tagline: string, handle: string]> = [
   ["Javier Oliver", "Branding/UX-UI designer building creative experiences", "javier_oliver"],
   ["Katy Sander", "2D Animator", "katysanderitsme"],
   ["George Weatherhead", "I animate interactive, gamified worlds", "georgeweatherhead"],
-  ["Val Guerra", "Rive Expert", "valguerra"],
+  ["Leo Mazzei", "Motion & Interactivity | Rive Ambassador", "leomazzei"],
   ["Matthew Haar", "3D Animator", "matthew_haar_503t9n8f"],
   ["Radityo Nugroho", "Interaction Designer", "radityo_nugroho_u4aqwcg3"],
-  ["Dmytro Petrenko", "Product, UI/UX & Motion Design for Web", "ortymdesign"],
-  ["Brynjar Palsson", "2D Animator", "brynjar_palsson_ryzx2jec"],
-  ["Uko Ekpenyong", "Interaction Designer", "luandko_timksmg2"],
+  ["Bartek Radziejewski", "Not boring: Apps, Web, Rive animations, Framer.", "bart_radz"],
+  ["Ashley Best", "Interactive / Animation / Web Development / Sound Design", "ashleybest"],
+  ["Emanuele Colombo", "Motion Designer", "emanuele_colombo_z1y8crrl"],
 ];
 
 /* ── the roster ───────────────────────────────────────────────────────────── */
@@ -43,8 +43,8 @@ describe("the nine cards", () => {
       .find((chunk) => chunk.includes(name));
     expect(card, `no card for ${name}`).toBeTruthy();
     expect(card).toContain(`https://contra.com/${handle}`);
-    /* Decoded before comparing: React escapes the `&` in Dmytro's line to
-       `&amp;`, so a raw-HTML substring check would miss a correct render. */
+    /* Decoded before comparing: React escapes the `&` in Leo's line to `&amp;`,
+       so a raw-HTML substring check would miss a correct render. */
     expect(text(card!)).toContain(tagline);
   });
 
@@ -69,7 +69,7 @@ describe("the nine cards", () => {
 /* ── the decisions ────────────────────────────────────────────────────────── */
 
 describe("decisions that must not drift", () => {
-  /* We hold no rights to eight people's likenesses, and a scraped avatar cannot
+  /* We hold no rights to nine people's likenesses, and a scraped avatar cannot
      be kept current. The monogram is the rights call, not a style preference. */
   it("uses no photographs at all", () => {
     expect(html).not.toContain("<img");
@@ -81,32 +81,28 @@ describe("decisions that must not drift", () => {
       ...html.matchAll(/experts-strip__monogram"[^>]*>([^<]*)</g),
     ].map((m) => m[1]);
     expect(monograms).toEqual([
-      "JO", "KS", "GW", "VG", "MH", "RN", "DP", "BP", "UE",
+      "JO", "KS", "GW", "LM", "MH", "RN", "BR", "AB", "EC",
     ]);
   });
 
-  /* Being discoverable in the network is the honest claim; leading with the
-     person who built the page would be the section selling itself. */
-  it("puts the author last, with no special treatment", () => {
-    const names = [
-      ...html.matchAll(/experts-strip__name">([^<]*)</g),
-    ].map((m) => m[1]);
-    expect(names).toHaveLength(9);
-    expect(names[names.length - 1]).toBe("Uko Ekpenyong");
+  /* THE AUTHOR-CARD ASSERTIONS WERE REMOVED ON PURPOSE (2026-07-29).
+     This file used to pin the site author last and assert that card carried no
+     modifier class, badge or ordering hint. The author card left the strip by
+     owner decision — all nine are now other people — so there is no author
+     position left to guard. Recorded rather than silently dropped, so nobody
+     later reads the absence as an oversight and "restores" a pin for a card
+     that no longer exists. The no-ranking property it protected still holds and
+     is still covered: every card renders from the same template, and the
+     monogram and href pins below would fail if any card were special-cased. */
 
-    const authorCard = html
-      .split('class="experts-strip__card"')
-      .find((c) => c.includes("Uko Ekpenyong"))!;
-    /* Same class list as everyone else — no badge, no modifier, no ordering hint. */
-    expect(authorCard).not.toMatch(/experts-strip__card--/);
-    expect(authorCard).not.toMatch(/author|featured|owner/i);
-  });
-
-  /* Her profile meta reads "Hiring as an Individual" — a Contra account mode,
-     not a specialty. Inventing a discipline for her would be worse than neutral. */
-  it("gives Val Guerra the neutral line, not her account mode", () => {
-    expect(body).toContain("Val Guerra");
-    expect(body).not.toContain("Hiring as an Individual");
+  /* Contra shows an account MODE where a specialty would go — a profile reading
+     "Hiring as an Individual" is describing its billing setup, not a discipline.
+     That string reached this list once (Val Guerra, since replaced) and was
+     caught then; this keeps it out generally rather than per person. */
+  it("never prints a Contra account mode as a specialty", () => {
+    for (const mode of ["Hiring as an Individual", "Top Independent", "Available"]) {
+      expect(body).not.toContain(mode);
+    }
   });
 
   /* A tagline that may truncate should spend its last characters on words. */
