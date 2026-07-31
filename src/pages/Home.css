@@ -10,7 +10,8 @@
    --hero-enter-stagger  gap between successive elements (reading order)
    --hero-enter-ease     ease-out-expo family — fast arrival, long soft settle
    --hero-enter-y        translate distance the element rises from
-   Per-element order is set via --enter-index (0 Nav … 6 DemoSlot). */
+   Per-element order is set via --enter-index (0 Nav, 1-6 the hero stack in
+   Hero.css — the DemoSlot that used to hold index 6 is retired). */
 .home {
   --hero-enter-dur: 600ms;
   --hero-enter-stagger: 80ms;
@@ -36,20 +37,6 @@
   }
   to {
     opacity: 1;
-  }
-}
-
-/* The DemoSlot is the biggest element: it settles last and most gently, adding
-   a subtle scale (0.98→1) alongside the rise. Paired with a longer duration at
-   the call site so its overshoot lands softest. */
-@keyframes hero-enter-demo {
-  from {
-    opacity: 0;
-    transform: translateY(var(--hero-enter-y)) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: none;
   }
 }
 
@@ -129,129 +116,20 @@
    vertical padding (var(--space-24) top/bottom) and the Footer's top hairline
    ends the page — so neither takes the standard 160px section margin. */
 
-/* -------------------------------------------------------------------- Hero */
-
-.hero {
-  display: flex;
-  flex-direction: column;
-}
-
-.hero__body {
-  display: flex;
-  align-items: center;
-  gap: var(--space-16);
-  min-height: 620px;
-}
-
-/* Copy column */
-.hero__copy {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-
-.hero__eyebrow {
-  font-family: var(--font-display);
-  font-size: var(--font-size-eyebrow);
-  color: var(--text-accent);
-  letter-spacing: 0.08em;
-}
-
-.hero__title {
-  margin: 0;
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: clamp(36px, 5vw, 56px);
-  line-height: 1.08;
-  color: var(--text-heading);
-}
-
-.hero__subhead {
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: 18px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-.hero__range {
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: 16px;
-  color: var(--text-muted);
-}
-
-.hero__ctas {
-  display: flex;
-  gap: var(--space-3);
-}
-
-/* Demo column */
-.hero__demo {
-  flex: 0 0 620px;
-  align-self: stretch;
-}
-
 /* --------------------------------------------------- Hero entrance (on load)
 
-   Reading-order cascade. Each rule sets its --enter-index; the shared shorthand
-   turns that into a stagger delay. animation-fill-mode:both holds the from-state
-   before the delay elapses (no flash) and the to-state after (no snap back).
-   Transforms/opacity only → zero layout shift (no CLS). Scoped strictly to the
-   hero + its Nav; LogoMarquee and everything below get NO load animation. */
+   The knobs and keyframes live here because Nav shares them; the per-element
+   cascade for the hero itself lives in Hero.css. Nav is index 0 — chrome, so
+   opacity only, no rise, no delay. */
 
-/* 0 — Nav (chrome): opacity only, no rise, no delay. Lives outside .hero. */
 .home .nav {
   --enter-index: 0;
   animation: hero-enter-nav var(--hero-enter-dur) var(--hero-enter-ease)
     calc(var(--enter-index) * var(--hero-enter-stagger)) both;
 }
 
-/* 1–5 — copy, in reading order. */
-.hero__eyebrow {
-  --enter-index: 1;
-}
-.hero__title {
-  --enter-index: 2;
-}
-.hero__subhead {
-  --enter-index: 3;
-}
-.hero__range {
-  --enter-index: 4;
-}
-.hero__ctas {
-  --enter-index: 5;
-}
-.hero__eyebrow,
-.hero__title,
-.hero__subhead,
-.hero__range,
-.hero__ctas {
-  animation: hero-enter var(--hero-enter-dur) var(--hero-enter-ease)
-    calc(var(--enter-index) * var(--hero-enter-stagger)) both;
-}
-
-/* 6 — DemoSlot: last, longest (1.4×), gentlest (scale variant). */
-.hero__demo {
-  --enter-index: 6;
-  animation: hero-enter-demo calc(var(--hero-enter-dur) * 1.4)
-    var(--hero-enter-ease)
-    calc(var(--enter-index) * var(--hero-enter-stagger)) both;
-}
-
-/* Reduced motion: no entrance. Because each animation carries its from-state,
-   removing the animation entirely leaves every element at its natural final
-   state — fully visible, untransformed — with no opacity-0 flash. */
 @media (prefers-reduced-motion: reduce) {
-  .home .nav,
-  .hero__eyebrow,
-  .hero__title,
-  .hero__subhead,
-  .hero__range,
-  .hero__ctas,
-  .hero__demo {
+  .home .nav {
     animation: none;
   }
 }
@@ -263,15 +141,4 @@
     padding: 0 var(--space-8);
   }
 
-  .hero__body {
-    flex-direction: column;
-    align-items: stretch;
-    min-height: 0;
-  }
-
-  .hero__demo {
-    flex: 0 0 auto;
-    height: 360px;
-    width: 100%;
-  }
 }

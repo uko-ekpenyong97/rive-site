@@ -58,3 +58,18 @@
 .nav__talk:hover {
   color: var(--text-accent);
 }
+
+/* The cat's 269×150 artboard is centred on a ~40px-tall button, so most of it
+   paints above the nav row. It costs no layout (the canvas is out of flow), but
+   it must paint OVER the neighbouring nav items rather than under them. */
+.nav__cta {
+  z-index: 2;
+}
+
+/* Nothing in the nav may clip: the whole point of the overflow pattern is that
+   the animation leaves the button's box. Stated rather than relied upon, since
+   a future `overflow: hidden` here would silently crop the cat to a rectangle. */
+.nav,
+.nav__right {
+  overflow: visible;
+}

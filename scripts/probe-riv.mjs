@@ -43,6 +43,49 @@ export function loadWasmLocally() {
   );
 }
 
+/**
+ * State-machine INPUTS. They live on an instance, not on the file-level
+ * definition, so the machine has to be instantiated to read them — which is why
+ * this is a separate step from enumerating names.
+ *
+ * Best-effort by design: a file that refuses to instantiate still reports its
+ * artboards and machines rather than failing the whole probe. Callers
+ * distinguish "no inputs" (`[]`) from "could not read" (`null`).
+ */
+function describeInputs(runtime, smDef, abDef) {
+  let smi;
+  try {
+    smi = new runtime.StateMachineInstance(smDef, abDef);
+  } catch {
+    return null;
+  }
+  try {
+    const out = [];
+    for (let i = 0; i < smi.inputCount(); i++) {
+      const input = smi.input(i);
+      const T = runtime.SMIInput ?? {};
+      const type =
+        input.type === T.bool
+          ? "bool"
+          : input.type === T.number
+            ? "number"
+            : input.type === T.trigger
+              ? "trigger"
+              : String(input.type);
+      out.push({ name: input.name, type });
+    }
+    return out;
+  } catch {
+    return null;
+  } finally {
+    try {
+      smi.delete();
+    } catch {
+      /* best effort */
+    }
+  }
+}
+
 /** Best-effort: property shape differs across runtime versions. */
 function describeProperties(viewModel) {
   try {
@@ -100,6 +143,9 @@ export async function probe(path) {
       height: b.maxY != null && b.minY != null ? b.maxY - b.minY : null,
       animations: [],
       stateMachines: [],
+      /* smName -> [{name, type}] | null (could not read). Kept beside the name
+         list rather than replacing it, so existing callers are unaffected. */
+      inputs: {},
     };
     for (let a = 0; a < ab.animationCount(); a++) {
       const anim = ab.animationByIndex(a);
@@ -112,7 +158,9 @@ export async function probe(path) {
       });
     }
     for (let s = 0; s < ab.stateMachineCount(); s++) {
-      artboard.stateMachines.push(ab.stateMachineByIndex(s).name);
+      const smDef = ab.stateMachineByIndex(s);
+      artboard.stateMachines.push(smDef.name);
+      artboard.inputs[smDef.name] = describeInputs(runtime, smDef, ab);
     }
     result.artboards.push(artboard);
   }
@@ -147,6 +195,18 @@ function report(r) {
     line.push(`    ${ab.name}  ${ab.width} x ${ab.height}`);
     if (ab.stateMachines.length) {
       line.push(`      state machines: ${ab.stateMachines.join(", ")}`);
+      for (const sm of ab.stateMachines) {
+        const inputs = ab.inputs?.[sm];
+        if (inputs === null) {
+          line.push(`        ${sm}: inputs unreadable`);
+        } else if (inputs?.length) {
+          line.push(
+            `        ${sm}: ${inputs.map((i) => `${i.name}:${i.type}`).join(", ")}`,
+          );
+        } else if (inputs) {
+          line.push(`        ${sm}: no inputs`);
+        }
+      }
     }
     for (const an of ab.animations) {
       line.push(

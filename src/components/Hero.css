@@ -1,0 +1,149 @@
+/* Centred single-column hero. Replaced the two-column copy + 620px DemoSlot
+   layout when the Rive CTAs landed — the CTAs are the demo now. */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-6);
+  padding: var(--space-16) 0 var(--space-8);
+
+  /* The rocket canvas is 500px wide against a ~150px button, so it extends well
+     past the CTA row. Nothing in the page clipped horizontally before this, so
+     that overflow could push page width and produce a horizontal scrollbar.
+     `clip` rather than `hidden`: it does not create a scroll container, and
+     because the other axis stays `visible` both values are honoured as
+     specified — so the rocket still spills vertically, which is the point. */
+  overflow-x: clip;
+}
+
+.hero__wordmark {
+  font-family: var(--font-display);
+  font-size: var(--font-size-eyebrow);
+  font-weight: 500;
+  /* The live site's letterspaced mark. CSS, so the accessible name stays "RIVE"
+     rather than being announced letter by letter. */
+  letter-spacing: 0.62em;
+  /* Letterspacing adds trailing space after the last glyph; pull it back so the
+     mark reads optically centred. */
+  text-indent: 0.62em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+}
+
+.hero__title {
+  margin: 0;
+  max-width: 16ch;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.08;
+  color: var(--text-heading);
+}
+
+.hero__subhead {
+  margin: 0;
+  max-width: 56ch;
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.hero__range {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+/* Reserved space for the rocket's overflow, so nothing shifts when the canvas
+   arrives and the art never collides with the proof line above or the status
+   line below. Tuned against the rendered page at 1280/1440/1680. */
+.hero__ctas {
+  /* The rocket artboard is 500px tall centred on a ~40px button, so it reaches
+     ~230px above and below the row. Measured at 1280/1440/1680: 150px left the
+     art overlapping the proof line by 52px. */
+  --rocket-clearance: 210px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-block: var(--rocket-clearance);
+}
+
+.hero__status {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------- Entrance cascade
+
+   Reading order, re-indexed for the centred stack (the old order ended at 6
+   with the retired DemoSlot). Nav stays 0 and lives outside .hero; the shared
+   `hero-enter` keyframe and its tuning knobs stay in Home.css because Nav
+   shares them. */
+
+.hero__wordmark {
+  --enter-index: 1;
+}
+.hero__title {
+  --enter-index: 2;
+}
+.hero__subhead {
+  --enter-index: 3;
+}
+.hero__range {
+  --enter-index: 4;
+}
+.hero__ctas {
+  --enter-index: 5;
+}
+.hero__status {
+  --enter-index: 6;
+}
+
+.hero__wordmark,
+.hero__title,
+.hero__subhead,
+.hero__range,
+.hero__ctas,
+.hero__status {
+  animation: hero-enter var(--hero-enter-dur) var(--hero-enter-ease)
+    calc(var(--enter-index) * var(--hero-enter-stagger)) both;
+}
+
+/* Each animation carries its own from-state, so removing the animation leaves
+   every element at its natural final state — no opacity-0 flash. */
+@media (prefers-reduced-motion: reduce) {
+  .hero__wordmark,
+  .hero__title,
+  .hero__subhead,
+  .hero__range,
+  .hero__ctas,
+  .hero__status {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------- Responsive */
+
+@media (max-width: 1024px) {
+  .hero {
+    padding: var(--space-8) 0;
+  }
+
+  /* The rocket is rendered at its natural 500px; on a narrow viewport that
+     needs less vertical reservation than it does on desktop, because the
+     surrounding copy has already stacked taller. */
+  .hero__ctas {
+    --rocket-clearance: 110px;
+    flex-direction: column;
+    width: 100%;
+  }
+}

@@ -1,0 +1,122 @@
+/* A CTA whose face is one of Rive's own .riv files.
+
+   Chrome matches Button.css token-for-token — this is the same button, with a
+   canvas over it. It is deliberately NOT built on <Button>: Button renders its
+   own single child and owns no positioning context, and bolting an overflow
+   canvas onto it would have made every ordinary button carry the machinery. */
+
+.rive-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: var(--font-size-body-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  line-height: 1;
+  text-decoration: none;
+  transition: background-color 120ms, opacity 120ms;
+}
+
+.rive-button[data-variant="primary"] {
+  background: var(--accent-default);
+  color: var(--accent-on-accent);
+}
+.rive-button[data-variant="primary"]:hover {
+  background: var(--accent-hover);
+}
+
+.rive-button[data-variant="secondary"] {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+.rive-button[data-variant="secondary"]:hover {
+  background: var(--surface-overlay);
+}
+
+.rive-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Once the canvas paints the button face, the chrome underneath it would read
+   as a second button behind the first. The hitbox stays exactly where it was —
+   only the paint goes. */
+.rive-button[data-canvas="live"][data-layout="overflow"] {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* ------------------------------------------------------------ canvas layer */
+
+.rive-button__canvas {
+  /* Never a pointer target. The button element is the hitbox; this layer only
+     paints. Without it, a 500x500 transparent canvas would swallow hovers for
+     the DotField beneath and block text selection around the CTA. */
+  pointer-events: none;
+  display: block;
+  width: var(--rive-button-w);
+  height: var(--rive-button-h);
+  /* The canvas is in the document from the start so the runtime can attach to
+     it, but it has nothing to paint until the file loads. Hidden until then, so
+     there is no empty rectangle over the button while the 2.41 MB wasm and the
+     .riv are still in flight. */
+  opacity: 0;
+  transition: opacity 200ms var(--ease-standard);
+}
+
+.rive-button__canvas[data-live] {
+  opacity: 1;
+}
+
+/* THE OVERFLOW PATTERN: out of flow, centred on the button, so a canvas many
+   times the button's size costs zero layout and shifts nothing. */
+.rive-button__canvas[data-layout="overflow"] {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+}
+
+/* A small mark in normal flow instead — the R logo beside its DOM label. */
+.rive-button__canvas[data-layout="inline"] {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.rive-button__surface {
+  width: 100%;
+  height: 100%;
+}
+
+/* ------------------------------------------------------------------ label */
+
+.rive-button__label {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hidden, never removed: both GET STARTED files paint their label inside the
+   artboard, where no assistive technology can reach it. Keeping the DOM text in
+   the accessible name is what holds WCAG 2.5.3 (Label in Name) — the same
+   reason BentoCell appends its hint instead of using aria-label.
+
+   TRANSPARENT, NOT THE VISUALLY-HIDDEN CLIP PATTERN. That pattern takes the
+   text out of flow, which collapsed this button from ~118px to ~33px the moment
+   the canvas went live: the hitbox shrank away from the 269px of art the
+   visitor can see, and the collapse was itself a post-load layout shift. Colour
+   alone keeps the box exactly the size it was before Rive arrived — no shift,
+   and the hitbox still matches the button the artwork draws.
+
+   `visibility: hidden` would also preserve the box, but it removes the element
+   from the accessibility tree, which is the one thing this label exists for. */
+.rive-button__label[data-hidden] {
+  color: transparent;
+}

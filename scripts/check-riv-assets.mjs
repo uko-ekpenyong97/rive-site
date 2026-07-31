@@ -33,9 +33,11 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CONTENT = "src/components/UseCaseModal/useCaseContent.ts";
 const RAILS = "src/components/AudienceRails.tsx";
 const ASSET_DIR = "src/assets/rive";
+const SITE = "src/components/riveSiteAssets.ts";
+const SITE_DIR = "public/rive/site";
 
 /** Expected config counts. A mismatch means the parser broke, not that the repo shrank. */
-const EXPECT = { heroes: 5, glyphs: 3 };
+const EXPECT = { heroes: 5, glyphs: 3, site: 3 };
 
 const problems = [];
 const fail = (m) => problems.push(m);
@@ -87,6 +89,60 @@ function glyphConfigs() {
   return out;
 }
 
+/**
+ * Rive's own site animations (public/rive/site/). These are NOT imports — they
+ * are literal public/ paths, so `rivImports` cannot see them and neither could
+ * this checker until they were wired. Each config also declares the state
+ * machine INPUTS it drives, and those are checked too: a renamed or misspelled
+ * input is exactly the failure this script exists to catch, and it is invisible
+ * to tsc, to vite and to a mocked test.
+ */
+function siteConfigs() {
+  const text = readFileSync(resolve(ROOT, SITE), "utf8");
+  const out = [];
+  for (const block of text.split(/^export const /m).slice(1)) {
+    const src = block.match(/src:\s*"([^"]+\.riv)"/);
+    const artboard = block.match(/artboard:\s*"([^"]+)"/);
+    const stateMachine = block.match(/stateMachine:\s*"([^"]+)"/);
+    if (!src || !artboard || !stateMachine) continue;
+    /* Bracket-matched, NOT a non-greedy regex: each entry contains its own
+       `zone: [0, 0.2]`, so `\[([\s\S]*?)\]` stops at the first inner bracket and
+       silently reports one input out of five. A checker that verifies a subset
+       while printing success is the precise failure mode this script exists to
+       prevent — see the header. */
+    const inputs = [];
+    const open = block.indexOf("hoverInputs:");
+    if (open !== -1) {
+      const from = block.indexOf("[", open);
+      let depth = 0;
+      let end = -1;
+      for (let i = from; i < block.length; i++) {
+        if (block[i] === "[") depth++;
+        else if (block[i] === "]" && --depth === 0) {
+          end = i;
+          break;
+        }
+      }
+      if (end === -1) {
+        fail(`${SITE}: unterminated hoverInputs array — cannot verify inputs`);
+        continue;
+      }
+      for (const m of block.slice(from, end).matchAll(/name:\s*"([^"]+)"/g)) {
+        inputs.push(m[1]);
+      }
+    }
+    out.push({
+      where: SITE,
+      /* "/rive/site/x.riv" is a URL path, rooted at public/. */
+      file: resolve(ROOT, "public", src[1].replace(/^\//, "")),
+      artboard: artboard[1],
+      stateMachine: stateMachine[1],
+      inputs,
+    });
+  }
+  return out;
+}
+
 /** Every .riv under src/ that any source file imports. Catches dead assets. */
 function importedAnywhere() {
   const seen = new Set();
@@ -106,9 +162,10 @@ function importedAnywhere() {
   return seen;
 }
 
-const configs = [...heroConfigs(), ...glyphConfigs()];
+const configs = [...heroConfigs(), ...glyphConfigs(), ...siteConfigs()];
 const heroCount = configs.filter((c) => c.where === CONTENT).length;
 const glyphCount = configs.filter((c) => c.where === RAILS).length;
+const siteCount = configs.filter((c) => c.where === SITE).length;
 
 if (heroCount !== EXPECT.heroes) {
   fail(
@@ -120,6 +177,13 @@ if (glyphCount !== EXPECT.glyphs) {
   fail(
     `parser found ${glyphCount} glyph configs in ${RAILS}, expected ${EXPECT.glyphs} — ` +
       `the parser is broken or the rails changed. Refusing to check a partial set.`,
+  );
+}
+
+if (siteCount !== EXPECT.site) {
+  fail(
+    `parser found ${siteCount} site configs in ${SITE}, expected ${EXPECT.site} — ` +
+      `the parser is broken or the asset set changed. Refusing to check a partial set.`,
   );
 }
 
@@ -156,8 +220,35 @@ for (const cfg of configs) {
     continue;
   }
 
+  /* Input parity. `cfg.inputs` is only present for the site assets; the modal
+     heroes deliberately declare none because we never write their inputs. */
+  let inputNote = "";
+  if (cfg.inputs) {
+    const found = hit.inputs?.[cfg.stateMachine];
+    if (found === null || found === undefined) {
+      fail(
+        `${rel}: could not read inputs for "${cfg.stateMachine}" — cannot verify ` +
+          `[${cfg.inputs.join(", ")}]\n      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+    const names = found.map((i) => i.name);
+    const missing = cfg.inputs.filter((n) => !names.includes(n));
+    if (missing.length) {
+      fail(
+        `${rel}: config drives input(s) [${missing.join(", ")}] that "${cfg.stateMachine}" ` +
+          `does not have — file has [${names.join(", ") || "none"}]\n` +
+          `      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+    inputNote = cfg.inputs.length
+      ? `  inputs ${cfg.inputs.length}/${names.length}`
+      : `  no inputs (autonomous)`;
+  }
+
   const sm = cfg.stateMachine ? `  sm ${cfg.stateMachine}` : "";
-  console.log(`  ok  ${basename(cfg.file)}  →  ${cfg.artboard}${sm}`);
+  console.log(`  ok  ${basename(cfg.file)}  →  ${cfg.artboard}${sm}${inputNote}`);
 }
 
 /* Dead assets invite exactly the drift that caused the original bug: a file
@@ -168,6 +259,18 @@ for (const entry of readdirSync(resolve(ROOT, ASSET_DIR))) {
   const p = resolve(ROOT, ASSET_DIR, entry);
   if (!imported.has(p)) {
     fail(`${ASSET_DIR}/${entry}: committed but imported nowhere — dead asset`);
+  }
+}
+
+/* Same dead-asset rule for the site animations: a committed .riv that no config
+   references is one nobody notices is wrong. */
+const siteReferenced = new Set(
+  configs.filter((c) => c.where === SITE).map((c) => c.file),
+);
+for (const entry of readdirSync(resolve(ROOT, SITE_DIR))) {
+  if (!entry.endsWith(".riv")) continue;
+  if (!siteReferenced.has(resolve(ROOT, SITE_DIR, entry))) {
+    fail(`${SITE_DIR}/${entry}: committed but referenced by no config — dead asset`);
   }
 }
 
