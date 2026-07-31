@@ -1,0 +1,19 @@
+/* The closing mark. Full content width, flush at the very bottom — the last
+   thing on the page, the way X's footer mark is. No entrance animation and no
+   scroll behaviour: the effect is scale and layering, and X's version is the
+   proof that is enough. */
+.footer-mark {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* The wordmark IS the bottom edge. Its own glyph bearings supply the only
+     breathing room, which is what makes it read as anchored rather than placed. */
+  margin-top: var(--space-12);
+}
+
+/* Rotation is off so the dot stays a dot. `offset-rotate: auto` would spin it
+   through every curve of the R, which reads as a comet rather than a payload. */
+.footer-mark__dot {
+  offset-rotate: 0deg;
+  offset-distance: 0%;
+}

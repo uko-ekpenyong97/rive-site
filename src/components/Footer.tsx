@@ -1,3 +1,4 @@
+import FooterMark from "./FooterMark";
 import "./Footer.css";
 
 interface FooterLink {
@@ -75,6 +76,9 @@ export function Footer() {
       <div className="footer__attribution">
         © 2026 — A redesign study by Uko Ekpenyong. Not affiliated with Rive.
       </div>
+
+      {/* Last thing on the page. */}
+      <FooterMark />
     </footer>
   );
 }

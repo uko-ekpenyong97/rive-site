@@ -549,6 +549,86 @@ try {
       : bad(`ExpertsStrip: ${experts.truncates} of 9 taglines truncate`);
   }
   await send("Emulation.clearDeviceMetricsOverride");
+
+  /* ── FooterMark ─────────────────────────────────────────────────────────
+     The layered wordmark that closes the page. Its whole effect is four
+     hairlines at different weights, which is exactly the kind of thing that
+     survives a unit test and dies in a browser — non-scaling-stroke is a
+     rendering behaviour, and the ghost layers can composite away to nothing
+     without any assertion noticing. */
+  console.log("");
+  await evaluate("window.scrollTo(0, document.body.scrollHeight)");
+  await sleep(1200);
+
+  const mark = await evaluate(`(() => {
+    const svg = document.querySelector('.footer-mark');
+    if (!svg) return null;
+    const r = svg.getBoundingClientRect();
+    const layers = [...svg.querySelectorAll('.footer-mark__layer')];
+    const dot = svg.querySelector('.footer-mark__dot');
+    const doc = document.documentElement;
+    return {
+      width: Math.round(r.width),
+      parentWidth: Math.round(svg.parentElement.getBoundingClientRect().width),
+      layers: layers.length,
+      nonScaling: layers.filter(
+        (l) => getComputedStyle(l).vectorEffect === 'non-scaling-stroke',
+      ).length,
+      /* Resolved, so a token that composites to nothing is visible here. */
+      strokes: layers.map((l) => {
+        const cs = getComputedStyle(l);
+        return cs.stroke + ' @' + cs.strokeOpacity + ' w' + cs.strokeWidth;
+      }),
+      dot: !!dot,
+      dotAnimations: dot ? dot.getAnimations().length : 0,
+      dotOffsetPath: dot ? getComputedStyle(dot).offsetPath.slice(0, 12) : null,
+      /* The mark IS the bottom edge. */
+      gapBelow: Math.round(doc.scrollHeight - (r.bottom + window.scrollY)),
+      /* Scoped to the MARK, not the page. This page has deliberately full-bleed
+         sections (the community wall is 100vw by design), so a page-wide
+         overflow assertion here would fail for someone else's layout and teach
+         whoever hits it to ignore this check — the same trap the DeveloperZone
+         block above already documents. */
+      selfOverflow: Math.max(0, Math.round(svg.scrollWidth - svg.clientWidth)),
+      escapesRight: Math.max(0, Math.round(r.right - doc.clientWidth)),
+    };
+  })()`);
+
+  if (!mark) {
+    bad("FooterMark: not found");
+  } else {
+    mark.layers === 4
+      ? good("FooterMark: 4 stacked outline layers")
+      : bad(`FooterMark: ${mark.layers} layers, expected 4`);
+
+    mark.nonScaling === 4
+      ? good("FooterMark: non-scaling-stroke on every layer")
+      : bad(
+          `FooterMark: ${mark.nonScaling} of 4 layers keep non-scaling-stroke — hairlines will fatten with the viewport`,
+        );
+
+    mark.width === mark.parentWidth
+      ? good(`FooterMark: spans the full content width (${mark.width}px)`)
+      : bad(`FooterMark: ${mark.width}px inside a ${mark.parentWidth}px column`);
+
+    mark.gapBelow === 0
+      ? good("FooterMark: flush to the bottom of the page")
+      : bad(`FooterMark: ${mark.gapBelow}px of page below the mark`);
+
+    mark.selfOverflow === 0 && mark.escapesRight === 0
+      ? good("FooterMark: stays inside the viewport, scrolls nothing")
+      : bad(
+          `FooterMark: overflows itself by ${mark.selfOverflow}px, escapes right by ${mark.escapesRight}px`,
+        );
+
+    mark.dot && mark.dotAnimations === 1 && mark.dotOffsetPath?.startsWith("path")
+      ? good("FooterMark: payload dot riding one motion-path animation")
+      : bad(
+          `FooterMark: dot=${mark.dot} animations=${mark.dotAnimations} offsetPath=${mark.dotOffsetPath}`,
+        );
+
+    console.log("        layers:", mark.strokes.join("  |  "));
+  }
 } catch (err) {
   bad(err.message);
 } finally {

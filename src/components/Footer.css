@@ -79,3 +79,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* The closing mark is flush to the page bottom, so the footer's own bottom
+   padding would push it up and break the anchoring. Remove it and let the
+   wordmark's glyph bearings be the last space on the page. */
+.footer {
+  padding-bottom: 0;
+}
