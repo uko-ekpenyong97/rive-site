@@ -34,3 +34,25 @@ export const RIVE_WORDMARK_R_PATH =
 
 /** The logotype's own coordinate system. */
 export const RIVE_WORDMARK_VIEWBOX = "0 0 275 50";
+
+/**
+ * The R MARK — the standalone glyph, not the R of the wordmark.
+ *
+ * SOURCE: extracted 2026-08-01 from rive.app's own nav — their `<img>`, natural
+ * size 53×56. This is a different drawing from RIVE_WORDMARK_R_PATH above:
+ * that one is the R as it is set inside the four-letter logotype (275×50 space,
+ * matching stroke weights and proportions to I, V and E), while this is the
+ * mark Rive uses alone, drawn heavier and squarer to hold up at nav size.
+ * Keeping both here means the site cannot end up with two sources of truth for
+ * Rive letterforms — this file is the one home for them.
+ *
+ * Renders with fill-rule/clip-rule evenodd. The ink fills the box edge to edge,
+ * so a 26px height is 24.6px wide.
+ *
+ * Rive's mark, used in a disclaimed redesign study; replace if this codebase is
+ * ever repurposed.
+ */
+export const RIVE_MARK_VIEWBOX = "0 0 53 56";
+
+export const RIVE_MARK_PATH =
+  "M0 3.442c0 1.9 1.558 3.441 3.479 3.441H32.31c3.286 0 5.992 1.004 8.118 3.012 2.126 2.008 3.189 4.589 3.189 7.744 0 2.916-1.063 5.306-3.19 7.17-2.125 1.817-4.831 2.725-8.117 2.725H19.78c-1.922 0-3.48 1.54-3.48 3.442 0 1.9 1.558 3.441 3.48 3.441h13.836l12.466 19.79c.773 1.196 1.86 1.793 3.261 1.793 1.547 0 2.634-.597 3.262-1.793.628-1.242.507-2.557-.362-3.943l-11.09-17.64c2.996-1.338 5.364-3.298 7.103-5.879 1.74-2.629 2.61-5.664 2.61-9.106 0-3.49-.798-6.549-2.392-9.178-1.546-2.63-3.72-4.685-6.523-6.167C39.148.764 35.935 0 32.31 0H3.48C1.558 0 0 1.54 0 3.442z";

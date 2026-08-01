@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { USE_CASES } from "../components/UseCaseModal/useCaseContent";
 
 /**
@@ -625,5 +627,50 @@ describe("AudienceRails glyphs are NOT heroes", () => {
     for (const el of host!.querySelectorAll(".audience-glyph")) {
       expect(el.textContent?.trim()).toBe("");
     }
+  });
+});
+
+/* ── the glyph sits over the copy, not beside it ──────────────────────────── */
+
+describe("glyph centring (the CSS contract)", () => {
+  /* THE SPLIT, and why this pins a rule instead of a measurement: jsdom lays
+     nothing out, so getBoundingClientRect() here returns zeros and an assertion
+     about horizontal centres would pass against a component rendering every
+     glyph in the wrong place. `npm run check:rails` measures the RESULT in a
+     real engine at 1280/1440/1680; this pins the MECHANISM, so the cheap suite
+     still catches the specific regression that produced the bug — the rail's
+     `align-items: flex-start` reclaiming the glyph and pinning it left.
+
+     The measured miss before the fix was 61px at 1280 and 87px at 1440/1680:
+     the glyph is capped at 220px while the copy fills the whole column, so the
+     offset is exactly 110 − columnWidth/2 and grows with the viewport. */
+  const css = readFileSync(
+    join(process.cwd(), "src/components/AudienceRails.css"),
+    "utf8",
+  );
+
+  const glyphRule =
+    css.match(/\.audience-rails__rail \.audience-glyph \{([^}]*)\}/)?.[1] ?? "";
+
+  it("has a rule targeting the glyph inside a rail", () => {
+    expect(glyphRule.length).toBeGreaterThan(0);
+  });
+
+  it("overrides the column's alignment for the glyph alone", () => {
+    expect(glyphRule).toMatch(/align-self:\s*center/);
+  });
+
+  it("leaves the rail itself left-aligned, so the copy stays ragged-right", () => {
+    const railRule = css.match(/\.audience-rails__rail \{([^}]*)\}/)?.[1] ?? "";
+    expect(railRule).toMatch(/align-items:\s*flex-start/);
+  });
+
+  it("centres without a magic-number margin", () => {
+    /* The artboards are not asymmetric — measured with the dot grid hidden,
+       each drawing sits centred in its own 240×200 artboard to within a pixel
+       (41/41, 36/36, 44/45 left/right). So a horizontal nudge here would be
+       correcting nothing, and would only hold at the width it was tuned at. */
+    expect(glyphRule).not.toMatch(/margin-(left|right|inline)/);
+    expect(glyphRule).not.toMatch(/transform/);
   });
 });

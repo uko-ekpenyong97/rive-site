@@ -1,10 +1,39 @@
 .marquee {
-  /* Tunable knobs. Duration math (keep the linear px/s calm):
-     15 logos × (160px box + 72px gap) ≈ 3480px per copy. translateX(-50%)
-     travels exactly one copy, so speed = copyWidth / duration. At 90s that's
-     ~39px/s — matching the original 12-logo strip's ~34px/s cadence. */
-  --marquee-duration: 90s;
+  /* Tunable knobs.
+
+     THE SPEED IS THE INVARIANT, NOT THE DURATION — 38.7 px/s, the cadence the
+     original 12-logo strip settled on. Duration is derived from it, so any
+     change to cap height, gap or logo count means RECOMPUTING this rather than
+     carrying the old number forward:
+
+         copyWidth = Σ(logotype widths at --marquee-cap) + 15 × --logo-gap
+         --marquee-duration = copyWidth ÷ 38.7
+
+     translateX(-50%) travels exactly one copy, so duration IS copyWidth/speed.
+     At cap 21px the logotypes sum to ~1700px and the gaps to 1080px, giving a
+     2780px copy → 72s. (It was 90s when every logo sat in a fixed 160px box:
+     3480px ÷ 38.7. The box is gone, so the number moved and the speed did not.)
+     `npm run logos:logotype` prints the current copyWidth and the duration it
+     implies. */
+  --marquee-duration: 72s;
   --logo-gap: 72px;
+
+  /* Cap height — the one measurement every brand is normalized to. Each logo
+     renders at `--marquee-cap × --logo-k`, where --logo-k is that file's own
+     measured viewBox-height:cap-height ratio. Equalizing bounding boxes instead
+     would make a lockup wordmark smaller than a pure logotype, which is the
+     inconsistency this replaced. */
+  --marquee-cap: 21px;
+
+  /* The line the logos stand on, measured from the top of the row. Equal caps
+     only read as one line if the letters also share a baseline: a mark with a
+     descender (Google's g, Duolingo's g, Pepsi's p) has more box below its
+     baseline, so centring boxes would float it high against Samsung or Philips.
+     Row 40px with the baseline at 30px centres the cap band and clears the
+     tallest ascender (25.2px, LinkedIn) and the deepest descender (7.3px,
+     Duolingo) — `npm run logos:logotype` prints both. */
+  --marquee-row: 40px;
+  --marquee-baseline: 30px;
 
   display: flex;
   flex-direction: column;
@@ -49,21 +78,22 @@
 
 .marquee__group {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
 }
 
-/* Every logo sits in an IDENTICAL box (Stripe's model). Whitespace comes from
-   a trailing margin — not flex `gap` — so each copy's width includes its own
+/* Every logo takes its OWN width at the shared cap height — the identical-box
+   model it replaced could not hold one: at cap 21px SoundCloud's logotype is
+   204px wide against Figma's 71px, so a 160px box would have had to shrink the
+   wide marks back out of the line it exists to create. Whitespace comes from a
+   trailing margin — not flex `gap` — so each copy's width includes its own
    trailing gap, and translateX(-50%) lands copy 2's first logo exactly where
    copy 1's was: a seamless wrap with no half-gap jump. */
 .marquee__logo {
   flex: 0 0 auto;
   box-sizing: border-box;
-  width: 160px;
-  height: 40px;
+  height: var(--marquee-row);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
   margin-inline-end: var(--logo-gap);
   color: var(--text-secondary);
   opacity: 0.75;
@@ -71,14 +101,18 @@
     opacity 300ms var(--ease-standard);
 }
 
-/* Fit within the box, then apply the per-brand optical scale. */
+/* Height is the cap height scaled by this file's measured ratio; width follows
+   from the viewBox. The margin then drops the box so its baseline lands on the
+   shared line — which is why --logo-baseline is a measured fraction of the box
+   and not a nudge. */
 .marquee__svg {
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
   display: block;
-  transform: scale(var(--logo-scale, 1));
+  width: auto;
+  height: calc(var(--marquee-cap) * var(--logo-k));
+  margin-top: calc(
+    var(--marquee-baseline) - var(--marquee-cap) * var(--logo-k) *
+      var(--logo-baseline)
+  );
 }
 
 @keyframes marquee {

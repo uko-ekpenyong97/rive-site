@@ -23,9 +23,25 @@
 
 /* The glyph leads the rail, above the marker: the drawing is the first thing you
    meet and the text answers it. A little more air than the rail's own --space-3
-   gap, so the drawing reads as an illustration rather than another list item. */
+   gap, so the drawing reads as an illustration rather than another list item.
+
+   CENTRED OVER THE COPY, not left-aligned with it. The rail is a flex column set
+   to `align-items: flex-start` because the text must stay ragged-right off a
+   left margin — but that also pinned the 220px glyph to the left edge while the
+   copy filled the whole column, leaving the drawing 61px (at 1280) to 87px (at
+   1440 and 1680) left of the text it illustrates. `align-self` overrides the
+   column's alignment for this one child, so the glyph centres and the text does
+   not move.
+
+   This is the whole fix: the artboards themselves are NOT asymmetric. Measured
+   with the dot grid hidden, each drawing sits centred inside its own 240×200
+   artboard to within a pixel (left/right margins 41/41, 36/36, 44/45), stable
+   across the idle loop and at the Rest pose. So there is nothing to correct
+   inside the assets and no margin nudge belongs here. `npm run check:rails`
+   holds the result at all three widths. */
 .audience-rails__rail .audience-glyph {
   margin-bottom: var(--space-2);
+  align-self: center;
 }
 
 .audience-rails__marker {

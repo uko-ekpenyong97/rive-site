@@ -1,5 +1,6 @@
 import { RiveButton } from "./RiveButton";
 import { GET_STARTED_CAT } from "./riveSiteAssets";
+import { RIVE_MARK_PATH, RIVE_MARK_VIEWBOX } from "./riveWordmark";
 import "./Nav.css";
 
 const LINKS = ["Product", "Use cases", "Developers", "Community", "Pricing"];
@@ -8,8 +9,18 @@ export function Nav() {
   return (
     <nav className="nav">
       <div className="nav__left">
-        <a className="nav__wordmark" href="/">
-          RIVE
+        {/* The R mark, not the word — the same trade rive.app's own nav makes.
+            The link carries the name; the drawing is decorative, so it is hidden
+            from the accessibility tree rather than announced twice. */}
+        <a className="nav__wordmark" href="/" aria-label="Rive — home">
+          <svg
+            className="nav__mark"
+            viewBox={RIVE_MARK_VIEWBOX}
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path fillRule="evenodd" clipRule="evenodd" d={RIVE_MARK_PATH} />
+          </svg>
         </a>
         <ul className="nav__links">
           {LINKS.map((label) => (

@@ -1,9 +1,21 @@
 [
  {
+  "brand": "adobe-type",
+  "file": "adobe-type.svg",
+  "viewBox": "199.95 25.23 312.05 82.72",
+  "aspect": 3.772
+ },
+ {
   "brand": "adobe",
   "file": "adobe.svg",
   "viewBox": "0 0 512 134",
   "aspect": 3.821
+ },
+ {
+  "brand": "atlassian-type",
+  "file": "atlassian-type.svg",
+  "viewBox": "92.45 10.86 447.55 56.1",
+  "aspect": 7.978
  },
  {
   "brand": "atlassian",
@@ -18,6 +30,12 @@
   "aspect": 4.222
  },
  {
+  "brand": "dropbox-type",
+  "file": "dropbox-type.svg",
+  "viewBox": "142.19 33.35 307.29 70.99",
+  "aspect": 4.329
+ },
+ {
   "brand": "dropbox",
   "file": "dropbox.svg",
   "viewBox": "0 0 472 128",
@@ -28,6 +46,12 @@
   "file": "duolingo.svg",
   "viewBox": "0 0 400 94",
   "aspect": 4.255
+ },
+ {
+  "brand": "figma-type",
+  "file": "figma-type.svg",
+  "viewBox": "212 208 600 223",
+  "aspect": 2.691
  },
  {
   "brand": "figma",
@@ -48,10 +72,22 @@
   "aspect": 4
  },
  {
+  "brand": "notion-type",
+  "file": "notion-type.svg",
+  "viewBox": "233.54 50.77 278.46 76.16",
+  "aspect": 3.656
+ },
+ {
   "brand": "notion",
   "file": "notion.svg",
   "viewBox": "0 0 512 178",
   "aspect": 2.876
+ },
+ {
+  "brand": "pepsi-type",
+  "file": "pepsi-type.svg",
+  "viewBox": "722.43 78.79 1268.9 452.7",
+  "aspect": 2.803
  },
  {
   "brand": "pepsi",
@@ -72,16 +108,34 @@
   "aspect": 6.481
  },
  {
+  "brand": "sonos-type",
+  "file": "sonos-type.svg",
+  "viewBox": "0 9.66 24 4.67",
+  "aspect": 5.139
+ },
+ {
   "brand": "sonos",
   "file": "sonos.svg",
   "viewBox": "0 0 24 24",
   "aspect": 1
  },
  {
+  "brand": "soundcloud-type",
+  "file": "soundcloud-type.svg",
+  "viewBox": "14.54 120.03 225.62 24.01",
+  "aspect": 9.397
+ },
+ {
   "brand": "soundcloud",
   "file": "soundcloud.svg",
   "viewBox": "0 0 256 145",
   "aspect": 1.766
+ },
+ {
+  "brand": "spotify-type",
+  "file": "spotify-type.svg",
+  "viewBox": "183.34 36.63 328.66 96.59",
+  "aspect": 3.403
  },
  {
   "brand": "spotify",

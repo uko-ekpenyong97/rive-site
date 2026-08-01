@@ -13,12 +13,23 @@
   gap: var(--space-8);
 }
 
+/* The home link is now the R mark rather than the word "RIVE", so it is a box
+   around a drawing: flex centres it on the nav row, and `color` is what the
+   mark's `fill="currentColor"` resolves against. */
 .nav__wordmark {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
   color: var(--text-primary);
   text-decoration: none;
+}
+
+/* Height is the dial; width follows the mark's own 53:56 ratio (24.6px here).
+   Explicit px rather than a token for the same reason as the nav CTA's 119×34:
+   this is a measurement copied from rive.app's nav, not a design-system value. */
+.nav__mark {
+  display: block;
+  height: 26px;
+  width: auto;
 }
 
 .nav__links {

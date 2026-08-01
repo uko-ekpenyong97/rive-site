@@ -746,11 +746,24 @@ describe("weight stays out of the JS bundle", () => {
 
 /* ───────────────────────────────────────────────────────────────────────── */
 describe("accessibility", () => {
-  it("no aria-label anywhere in the hero or nav", () => {
+  it("no aria-label on any hero or nav CTA", () => {
     /* An aria-label would REPLACE the name computed from the button's own text
-       — the same rule BentoCell follows. */
+       — the same rule BentoCell follows. The hero therefore carries none at all.
+
+       The nav now carries EXACTLY ONE, and it is the exception that proves the
+       rule: its home link used to be the word "RIVE" and is now the R mark, so
+       there is no text left to compute a name from and the label is the only
+       thing naming it. Every other element in the nav still has to earn its
+       name from its own content, so the count is pinned rather than the
+       absence. */
     expect(renderToString(<Hero />).includes("aria-label")).toBe(false);
-    expect(renderToString(<Nav />).includes("aria-label")).toBe(false);
+
+    const nav = renderToString(<Nav />);
+    expect(nav.match(/aria-label="/g)).toHaveLength(1);
+    expect(nav).toContain('aria-label="Rive — home"');
+    /* Specifically: not on the CTA, which is what this test exists to guard. */
+    const cta = nav.match(/<a[^>]*class="[^"]*nav__cta[^"]*"[^>]*>/)?.[0] ?? "";
+    expect(cta).not.toContain("aria-label");
   });
 
   it("the canvas layer is hidden from the accessibility tree", () => {
@@ -782,10 +795,12 @@ describe("accessibility", () => {
   });
 
   it("the wordmark is decorative, so the hero stays aria-label-free", () => {
-    /* The nav already exposes "RIVE" as the home link and the H1 carries the
-       proposition; labelling the mark would announce the brand twice. Hiding it
-       is also what keeps `aria-label` out of the section entirely — one on a CTA
-       would replace the name computed from the button's own text. */
+    /* The nav already exposes the brand as its home link — the R mark, labelled
+       "Rive — home" (see navMark.test.tsx); it stopped being the literal word
+       "RIVE" when the mark replaced the text. The H1 carries the proposition.
+       Labelling this mark too would announce the brand twice. Hiding it is also
+       what keeps `aria-label` out of the section entirely — one on a CTA would
+       replace the name computed from the button's own text. */
     const ssr = renderToString(<Hero />);
     expect(ssr).toContain('class="hero__wordmark" aria-hidden="true"');
   });
