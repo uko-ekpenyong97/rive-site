@@ -1,9 +1,28 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 /* WebGL2 build — the GPU renderer already in the bundle for LoopCanvas and the
  * modal heroes. Adding a hero CTA therefore adds no runtime, only a .riv. */
 import { useRive } from "@rive-app/react-webgl2";
 import type { RiveSiteAsset } from "./riveSiteAssets";
 import "./RiveButton.css";
+
+/* ── Feel dials for the falling-edge escalation (the paw search) ────────────
+ *
+ * Named to match the spec's `--cat-search-delay` / `--cat-search-hold`. They are
+ * a config object rather than CSS custom properties because they drive JS timers
+ * — reading them back out of the cascade every leave would be indirection for
+ * its own sake. Dialled by feel against the measured timeline, then baked.
+ *
+ * MEASURED (standalone probe, 2026-07-31): after its input goes true the left
+ * pair reaches its deepest extension at 879ms and the right pair at 1515ms. HOLD
+ * is set just past the left peak, which is the pair that actually clears the nav
+ * bar; the right truncates at roughly 60% and that is accepted.
+ * ────────────────────────────────────────────────────────────────────────── */
+export const SEARCH_DIALS = {
+  /** Pause after the pointer leaves, before the big reach starts. */
+  delayMs: 250,
+  /** How long the reach is held before everything clears and `_end` plays. */
+  holdMs: 900,
+};
 
 export interface RiveButtonProps {
   asset: RiveSiteAsset;
@@ -155,11 +174,52 @@ export function RiveButton({
     }
   };
 
+  /* ── the paw search ─────────────────────────────────────────────────────
+     Leaving the button does NOT clear immediately when the asset declares an
+     escalation. The active half is held, its nested "2" partner is raised after
+     `delayMs` — which is the state that reaches down past the nav bar — held for
+     `holdMs`, and only then is everything cleared so the file's `_end` timeline
+     plays back to idle.
+
+     Re-entering during the window cancels it and normal half behaviour resumes,
+     so the cat never keeps searching for a cursor that has come back. */
+  const searchTimers = useRef<number[]>([]);
+  /**
+   * Cancelling has to lower the reach as well as drop the timers. `applyHover`
+   * only ever touches `declaredInputs` — the halves — so an escalation input
+   * raised on the falling edge is invisible to it, and a bare timer-clear would
+   * leave the cat frozen mid-reach the moment the cursor came back. Caught by
+   * the re-entry test, which is exactly what it was written for.
+   */
+  const cancelSearch = useCallback(() => {
+    for (const t of searchTimers.current) window.clearTimeout(t);
+    searchTimers.current = [];
+    for (const pair of asset.escalation ?? []) {
+      const input = inputsRef.current.get(pair.to);
+      if (input && input.value) input.value = false;
+    }
+  }, [asset.escalation]);
+  useEffect(() => cancelSearch, [cancelSearch]);
+
+  /** The half currently held true, if any — what the escalation escalates. */
+  const activeHalf = () => {
+    for (const hover of asset.declaredInputs) {
+      if (inputsRef.current.get(hover.name)?.value) return hover.name;
+    }
+    return null;
+  };
+
+  const setInput = (name: string, value: boolean) => {
+    const input = inputsRef.current.get(name);
+    if (input && input.value !== value) input.value = value;
+  };
+
   /* Measured against the BUTTON, not the canvas and not a wrapper: the halves
      are the button's own width, so leaving the button clears both and the art
      never reacts to a pointer that is merely near it. */
   const handlePointerMove = (event: React.PointerEvent<HTMLElement>) => {
     if (!canvasLive || !drivesManually || singleInput) return;
+    cancelSearch();
     const rect = event.currentTarget.getBoundingClientRect();
     if (!rect.width) return;
     applyHover((event.clientX - rect.left) / rect.width);
@@ -168,6 +228,7 @@ export function RiveButton({
   /* Single-input files (the rocket) switch on entering the button at all. */
   const handlePointerEnter = () => {
     onHoverChange?.(true);
+    cancelSearch();
     if (!canvasLive || !drivesManually || !singleInput) return;
     applyHover(0.5);
   };
@@ -175,7 +236,23 @@ export function RiveButton({
   const handlePointerLeave = () => {
     onHoverChange?.(false);
     if (!canvasLive || !drivesManually) return;
-    applyHover(null);
+    cancelSearch();
+
+    const half = activeHalf();
+    const pair = asset.escalation?.find((e) => e.from === half);
+    if (!pair) {
+      applyHover(null);
+      return;
+    }
+
+    /* Hold the half; raise the reach; then clear both so `_end` can play. */
+    searchTimers.current.push(
+      window.setTimeout(() => setInput(pair.to, true), SEARCH_DIALS.delayMs),
+      window.setTimeout(() => {
+        setInput(pair.to, false);
+        applyHover(null);
+      }, SEARCH_DIALS.delayMs + SEARCH_DIALS.holdMs),
+    );
   };
 
   /* Height follows the artboard ratio so the .riv never distorts. */

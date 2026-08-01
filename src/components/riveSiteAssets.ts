@@ -66,6 +66,17 @@ export interface RiveHoverInput {
   zone: [number, number];
 }
 
+/**
+ * One nested pair for the falling-edge escalation: the half that was active, and
+ * the "2" input that escalates it into the big reach.
+ */
+export interface RiveHoverEscalation {
+  /** The half input that was active when the pointer left. */
+  from: string;
+  /** Its nested partner, raised after the search delay. */
+  to: string;
+}
+
 export interface RiveSiteAsset {
   /** public/ path — NOT an import. See the source map above. */
   src: string;
@@ -90,6 +101,20 @@ export interface RiveSiteAsset {
    * different claim from "we did not know about it".
    */
   undrivenInputs?: string[];
+  /**
+   * FALLING-EDGE ESCALATION. When the pointer leaves the button, instead of
+   * clearing the active half immediately, hold it, raise its nested partner
+   * after a delay, hold that, and only then clear both — so the file plays its
+   * big "2" state and then its `_end` timeline.
+   *
+   * This is a DELIBERATE RECONSTRUCTION, not something read off the live site:
+   * rive.app reaches the same result by means we chose not to fully reverse
+   * (its nav drives only the two halves). See the Decision log entry citing the
+   * owner's screenshot as the target behaviour.
+   *
+   * Each pair's `to` input must exist in the file — `check:assets` verifies it.
+   */
+  escalation?: RiveHoverEscalation[];
   /**
    * How pointer input reaches the machine.
    *
@@ -201,12 +226,39 @@ export const GET_STARTED_CAT: RiveSiteAsset = {
     { name: "isHoverLeft", zone: [0, 0.5] },
     { name: "isHoverRight", zone: [0.5, 1] },
   ],
-  /* Present in the file, verified by `check:assets`, NEVER driven by Rive's own
-     site — do not wire without a Decision log entry.
+  /* Present in the file, verified by `check:assets`, never driven.
      ⚠ `isHovercenter` keeps its lowercase "c": that is the file's own spelling,
      the same situation as the "Recticle" artboard in useCaseContent.ts. It must
-     stay misspelled to match the file. */
-  undrivenInputs: ["isHovercenter", "isHoverLeft2", "isHoverRight2"],
+     stay misspelled to match the file. Measured as producing no visual change —
+     centre is the neutral forward pose, so driving it would be a no-op. */
+  undrivenInputs: ["isHovercenter"],
+  /* THE PAW SEARCH. Measured extent, standalone probe, artboard 269×150 with the
+     button box at y11-45 and the nav's bottom edge falling at artboard y69:
+
+       state                              px    bbox            lowest
+       isHoverLeft alone                1539    x54-118 y21-69    69
+       isHoverLeft + isHoverLeft2       5197    x74-194 y10-91    91  ◀ the long
+       isHoverRight alone               1479    x146-210 y13-49   49     downward paw
+       isHoverRight + isHoverRight2     1520    x155-211 y17-72   72
+
+     The "2" pair is the only thing in this file that reaches meaningfully below
+     the nav bar — 22px past it for the left pair — and it is 3.4× the changed
+     area of anything else. Everything else stays inside the bar.
+
+     ⚠ THE FIRST MEASUREMENT MISSED IT. Held for 1200ms, the left pair looked
+     SHALLOWER than the plain half (y50 vs y69) and the obvious conclusion was
+     "the 2-family does not reach". `Left2` is a FOUR SECOND timeline: 1200ms is
+     under a third of it, and the reach happens at 879ms. Sample the whole
+     timeline or do not sample it.
+
+     Peaks, for tuning: left at 879ms after the input goes true, right at 1515ms.
+     The baked 900ms hold is near-exact for the left pair and truncates the right
+     at roughly 60% extension — accepted, because the left is the one that
+     carries the interaction. */
+  escalation: [
+    { from: "isHoverLeft", to: "isHoverLeft2" },
+    { from: "isHoverRight", to: "isHoverRight2" },
+  ],
   paintsOwnLabel: true,
 };
 

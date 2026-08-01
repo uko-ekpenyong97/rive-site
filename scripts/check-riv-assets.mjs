@@ -156,6 +156,21 @@ function siteConfigs() {
       ? [...undriven.matchAll(/"([^"]+)"/g)].map((m) => m[1])
       : [];
 
+    /* Falling-edge escalation targets. Same rule as everything else here: an
+       input we set has to exist in the committed bytes, or the paw search
+       silently does nothing and only a browser would ever notice. */
+    const esc = arrayAfter("escalation");
+    if (esc === undefined) {
+      fail(`${SITE}: unterminated escalation array — cannot verify inputs`);
+      continue;
+    }
+    const escalation = esc
+      ? [...esc.matchAll(/from:\s*"([^"]+)"\s*,\s*to:\s*"([^"]+)"/g)].map((m) => ({
+          from: m[1],
+          to: m[2],
+        }))
+      : [];
+
     const pointer = block.match(/pointer:\s*"(manual|none)"/);
     if (!pointer) {
       fail(`${SITE}: an asset declares no pointer model — cannot verify wiring`);
@@ -169,6 +184,7 @@ function siteConfigs() {
       stateMachine: stateMachine[1],
       inputs,
       undrivenInputs,
+      escalation,
       pointer: pointer[1],
     });
   }
@@ -287,6 +303,42 @@ for (const cfg of configs) {
       );
       continue;
     }
+    /* Escalation targets are DRIVEN — on the falling edge rather than on hover,
+       but driven all the same. Both ends of each pair must exist. */
+    const escNames = cfg.escalation.flatMap((e) => [e.from, e.to]);
+    const goneEsc = escNames.filter((n) => !names.includes(n));
+    if (goneEsc.length) {
+      fail(
+        `${rel}: escalation names input(s) [${goneEsc.join(", ")}] that ` +
+          `"${cfg.stateMachine}" does not have — file has [${names.join(", ") || "none"}]\n` +
+          `      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+    /* An escalation target listed as undriven is a contradiction: the whole
+       point of `undrivenInputs` is that nothing writes it. */
+    const escUndriven = cfg.escalation
+      .map((e) => e.to)
+      .filter((n) => cfg.undrivenInputs.includes(n));
+    if (escUndriven.length) {
+      fail(
+        `${rel}: input(s) [${escUndriven.join(", ")}] are escalation targets but ` +
+          `also listed as undriven\n      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+    /* Each escalation must start from an input we actually drive on hover. */
+    const escOrphan = cfg.escalation
+      .map((e) => e.from)
+      .filter((n) => !cfg.inputs.includes(n));
+    if (escOrphan.length) {
+      fail(
+        `${rel}: escalation starts from [${escOrphan.join(", ")}], which is not a ` +
+          `driven hover input — it could never fire\n      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+
     /* Driving something also listed as undriven is contradictory on its face. */
     const both = cfg.inputs.filter((n) => cfg.undrivenInputs.includes(n));
     if (both.length) {
@@ -298,6 +350,7 @@ for (const cfg of configs) {
     }
     inputNote = cfg.inputs.length
       ? `  inputs ${cfg.inputs.length} driven` +
+        (cfg.escalation.length ? ` + ${cfg.escalation.length} escalation` : "") +
         (cfg.undrivenInputs.length
           ? ` + ${cfg.undrivenInputs.length} present-not-driven`
           : "") +

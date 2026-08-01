@@ -84,7 +84,7 @@ vi.mock("@rive-app/react-webgl2", async () => {
 /* Imported after the mock so the components pick it up. */
 const { Hero } = await import("../components/Hero");
 const { Nav } = await import("../components/Nav");
-const { RiveButton } = await import("../components/RiveButton");
+const { RiveButton, SEARCH_DIALS } = await import("../components/RiveButton");
 const {
   GET_STARTED_CAT,
   GET_STARTED_ROCKET,
@@ -461,6 +461,15 @@ describe("the canvas is display-only; the button is the whole hitbox", () => {
   });
 });
 
+/** Every input the cat file declares, as fresh mutable handles. */
+function allCatInputs() {
+  return [
+    ...GET_STARTED_CAT.declaredInputs.map((h) => h.name),
+    ...(GET_STARTED_CAT.undrivenInputs ?? []),
+    ...(GET_STARTED_CAT.escalation ?? []).map((e) => e.to),
+  ].map((name) => ({ name, value: false }));
+}
+
 describe("hover inputs match the live site's mechanism", () => {
   it("the cat is two halves, split at the midpoint", () => {
     /* Observed on rive.app's running instance: the button carries two invisible
@@ -475,18 +484,30 @@ describe("hover inputs match the live site's mechanism", () => {
     });
   });
 
-  it("the extra inputs are present in the file and deliberately never driven", () => {
-    /* The file really does carry five inputs, and our own measurement showed the
-       "2" variants escalate the plain leans (pixel delta vs idle: 152/172 at the
-       far left, 176/167 at the far right). That was correct ABOUT THE FILE.
-       Rive's own site simply never exercises them, and matching the original
-       beats out-engineering it — so they are listed, checked to still exist by
-       `check:assets`, and left alone. */
-    expect(GET_STARTED_CAT.undrivenInputs).toEqual([
-      "isHovercenter",
-      "isHoverLeft2",
-      "isHoverRight2",
+  it("the escalation pairs each half with its nested partner", () => {
+    expect(GET_STARTED_CAT.escalation).toEqual([
+      { from: "isHoverLeft", to: "isHoverLeft2" },
+      { from: "isHoverRight", to: "isHoverRight2" },
     ]);
+    /* Every `from` must be a half we actually drive on hover, or the escalation
+       could never fire. `check:assets` asserts the same against the bytes. */
+    const halves = GET_STARTED_CAT.declaredInputs.map((h) => h.name);
+    for (const e of GET_STARTED_CAT.escalation ?? []) {
+      expect(halves).toContain(e.from);
+    }
+  });
+
+  it("only the rocket and R logo have no escalation", () => {
+    expect(GET_STARTED_ROCKET.escalation ?? []).toEqual([]);
+    expect(R_LOGO_SHUFFLE.escalation ?? []).toEqual([]);
+  });
+
+  it("only isHovercenter stays undriven; the 2-family is now escalation", () => {
+    /* Left2/Right2 moved OUT of undrivenInputs when the paw search was wired —
+       they are driven on the falling edge by design decision, not on hover.
+       isHovercenter stays undriven: it measures as no visual change, because
+       centre is the neutral forward pose. */
+    expect(GET_STARTED_CAT.undrivenInputs).toEqual(["isHovercenter"]);
     const driven = GET_STARTED_CAT.declaredInputs.map((h) => h.name);
     for (const name of GET_STARTED_CAT.undrivenInputs ?? []) {
       expect(driven).not.toContain(name);
@@ -543,12 +564,101 @@ describe("hover inputs match the live site's mechanism", () => {
     move(20);
     expect(on()).toEqual(["isHoverLeft"]);
 
-    /* Leaving must clear both, or the cat stays frozen mid-lean after the cursor
-       has gone. React delegates onPointerLeave from `pointerout`. */
+    /* Leaving no longer clears immediately — it starts the paw search, which
+       HOLDS the active half so the file can escalate it. The full sequence and
+       its eventual clear are pinned in the escalation tests below; this one only
+       asserts that crossing between halves is exclusive. */
     act(() => {
       button.dispatchEvent(new MouseEvent("pointerout", { bubbles: true }));
     });
-    expect(on()).toEqual([]);
+    expect(on()).toEqual(["isHoverLeft"]);
+  });
+
+  it("leaving escalates: half held → 2 raised → both cleared", () => {
+    /* THE PAW SEARCH, pinned at the input level. The unit suite can only assert
+       the CAUSE — jsdom paints nothing — so `npm run check:exit` pins that the
+       resulting art actually reaches down past the nav bar. */
+    vi.useFakeTimers();
+    try {
+      const inputs = allCatInputs();
+      fake.state.inputs.set("Motion", inputs);
+      const el = mount(<RiveButton asset={GET_STARTED_CAT} label="Get started" />);
+      const button = el.querySelector(".rive-button") as HTMLElement;
+      button.getBoundingClientRect = () => ({ left: 0, width: 100 }) as DOMRect;
+      const on = () => inputs.filter((i) => i.value).map((i) => i.name).sort();
+
+      act(() => {
+        button.dispatchEvent(new MouseEvent("pointermove", { bubbles: true, clientX: 25 }));
+      });
+      expect(on()).toEqual(["isHoverLeft"]);
+
+      /* Leaving must NOT clear — that is the whole change. */
+      act(() => {
+        button.dispatchEvent(new MouseEvent("pointerout", { bubbles: true }));
+      });
+      expect(on()).toEqual(["isHoverLeft"]);
+
+      /* After the delay the reach is raised, NESTED on top of the half. */
+      act(() => { vi.advanceTimersByTime(SEARCH_DIALS.delayMs); });
+      expect(on()).toEqual(["isHoverLeft", "isHoverLeft2"]);
+
+      /* After the hold both clear, so the file's `_end` timeline can play. */
+      act(() => { vi.advanceTimersByTime(SEARCH_DIALS.holdMs); });
+      expect(on()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("re-entering during the search cancels it and resumes the halves", () => {
+    vi.useFakeTimers();
+    try {
+      const inputs = allCatInputs();
+      fake.state.inputs.set("Motion", inputs);
+      const el = mount(<RiveButton asset={GET_STARTED_CAT} label="Get started" />);
+      const button = el.querySelector(".rive-button") as HTMLElement;
+      button.getBoundingClientRect = () => ({ left: 0, width: 100 }) as DOMRect;
+      const on = () => inputs.filter((i) => i.value).map((i) => i.name).sort();
+
+      act(() => {
+        button.dispatchEvent(new MouseEvent("pointermove", { bubbles: true, clientX: 25 }));
+        button.dispatchEvent(new MouseEvent("pointerout", { bubbles: true }));
+      });
+      act(() => { vi.advanceTimersByTime(SEARCH_DIALS.delayMs); });
+      expect(on()).toEqual(["isHoverLeft", "isHoverLeft2"]);
+
+      /* Cursor comes back — the cat must stop searching for it. */
+      act(() => {
+        button.dispatchEvent(new MouseEvent("pointermove", { bubbles: true, clientX: 75 }));
+      });
+      expect(on()).toEqual(["isHoverRight"]);
+
+      /* And the cancelled timer must not fire later and clear the new state. */
+      act(() => { vi.advanceTimersByTime(SEARCH_DIALS.holdMs * 2); });
+      expect(on()).toEqual(["isHoverRight"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a file with no escalation still clears immediately on leave", () => {
+    vi.useFakeTimers();
+    try {
+      const inputs = [{ name: "isHover", value: false }];
+      fake.state.inputs.set("Motion", inputs);
+      const el = mount(<RiveButton asset={GET_STARTED_ROCKET} label="Get started" />);
+      const button = el.querySelector(".rive-button") as HTMLElement;
+      act(() => {
+        button.dispatchEvent(new MouseEvent("pointerover", { bubbles: true }));
+      });
+      expect(inputs[0].value).toBe(true);
+      act(() => {
+        button.dispatchEvent(new MouseEvent("pointerout", { bubbles: true }));
+      });
+      expect(inputs[0].value).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("the undriven inputs are never written, at any pointer position", () => {

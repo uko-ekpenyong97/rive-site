@@ -45,6 +45,16 @@ const ARTBOARD = process.argv[4] ?? "Cat";
 const MACHINE = process.argv[5] ?? "Motion";
 const W = Number(process.argv[6] ?? 269);
 const H = Number(process.argv[7] ?? 150);
+/** Optional nested partner to escalate onto INPUT, e.g. `--escalate isHoverLeft2`. */
+const ESCALATE = (() => {
+  const i = process.argv.indexOf("--escalate");
+  return i >= 0 ? process.argv[i + 1] : null;
+})();
+/** Optional assertion: the escalated art must reach past this artboard row. */
+const EXTENT_BELOW = (() => {
+  const i = process.argv.indexOf("--extent-below");
+  return i >= 0 ? Number(process.argv[i + 1]) : null;
+})();
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -88,16 +98,30 @@ const profile = mkdtempSync(join(tmpdir(), "fe2-"));
    is what tripped the blank-baseline guard on the rocket. */
 const chrome = spawn(CHROME, ["--headless=new","--remote-debugging-port=0",`--user-data-dir=${profile}`,"--no-first-run","--no-default-browser-check","--enable-unsafe-swiftshader","--use-gl=angle","--use-angle=swiftshader",`--window-size=${W+120},${H+120}`,"about:blank"], { stdio: "ignore" });
 
-/** Opaque-ish pixel count + luma sum of the captured rect. */
+/**
+ * Opaque-ish pixel count, luma sum, and VERTICAL EXTENT of the captured rect.
+ *
+ * `maxY` is the load-bearing one for the paw search: "how far down does the art
+ * reach" is the whole question, and a pixel COUNT cannot answer it. The first
+ * extent measurement of this file held the escalated state for 1200ms and
+ * concluded the 2-family reached less far than the plain half — it is a 4s
+ * timeline and the reach lands at 879ms. Hold for the timeline, not for a guess.
+ */
 async function signature(pngB64) {
   const { data, info } = await sharp(Buffer.from(pngB64, "base64"))
     .ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  let n = 0, s = 0;
-  for (let i = 0; i < data.length; i += info.channels) {
+  let n = 0, s = 0, minY = Infinity, maxY = -1;
+  for (let px = 0; px < info.width * info.height; px++) {
+    const i = px * info.channels;
     const lum = (data[i] + data[i+1] + data[i+2]) / 3;
-    if (lum > 10) { n++; s += lum; }   // background is #000
+    if (lum > 10) {                     // background is #000
+      n++; s += lum;
+      const y = Math.floor(px / info.width);
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
   }
-  return { n, s: Math.round(s) };
+  return { n, s: Math.round(s), minY: n ? minY : -1, maxY };
 }
 
 try {
@@ -151,10 +175,51 @@ try {
   await ev(`window.__inputs[${JSON.stringify(INPUT)}].value = true`);
   await sleep(600);
   const held = await shot();
-  console.log(`held true 600ms   lit ${held.n}  luma ${held.s}   Δlit ${(held.n-iN).toFixed(0)}  Δluma ${(held.s-iS).toFixed(0)}`);
+  console.log(`held true 600ms   lit ${held.n}  luma ${held.s}   Δlit ${(held.n-iN).toFixed(0)}  Δluma ${(held.s-iS).toFixed(0)}   lowest y ${held.maxY}`);
+
+  /* ── ESCALATION + EXTENT (the paw search) ────────────────────────────────
+     When a second input is named, raise it on top of the first — the nested
+     structure the file actually uses — and sample the FULL timeline for the
+     deepest reach. `--extent-below N` then asserts the art gets past row N,
+     which is how "it clears the nav bar" becomes a check rather than a claim. */
+  if (ESCALATE) {
+    await ev(`window.__inputs[${JSON.stringify(ESCALATE)}].value = true`);
+    const hs = Date.now();
+    let deepest = { maxY: -1 };
+    while (Date.now() - hs < 5200) {
+      const f = await shot();
+      if (f.maxY > deepest.maxY) deepest = { ...f, at: Date.now() - hs };
+    }
+    console.log(
+      `\nescalated ${INPUT}+${ESCALATE}\n` +
+        `  deepest reach   y ${deepest.maxY}  @${deepest.at}ms  (${deepest.n} lit px, Δlit ${(deepest.n-iN).toFixed(0)})`,
+    );
+    if (EXTENT_BELOW !== null) {
+      const ok = deepest.maxY > EXTENT_BELOW;
+      console.log(
+        `  ${ok ? "✓" : "✗"} art reaches past y=${EXTENT_BELOW} (needs to, for the nav overflow to show anything)`,
+      );
+      if (!ok) process.exitCode = 1;
+    }
+    /* REPLAY THE COMPONENT'S ACTUAL SEQUENCE before measuring the falling edge.
+       The 5.2s scan above exists to find the deepest reach, but it is far longer
+       than anything that happens on the site: `Left2` is a 4s timeline, so by
+       5.2s it has finished and returned to idle by itself — clearing then edits
+       nothing and the script reported "no exit animation" for a machine that was
+       already home. RiveButton holds for SEARCH_DIALS.holdMs (900ms), so hold
+       that long here too and the `_end` timeline is still live to exit from. */
+    await ev(`window.__inputs[${JSON.stringify(INPUT)}].value = false`);
+    await ev(`window.__inputs[${JSON.stringify(ESCALATE)}].value = false`);
+    await sleep(2000);
+    await ev(`window.__inputs[${JSON.stringify(INPUT)}].value = true`);
+    await sleep(250);   // SEARCH_DIALS.delayMs
+    await ev(`window.__inputs[${JSON.stringify(ESCALATE)}].value = true`);
+    await sleep(900);   // SEARCH_DIALS.holdMs
+  }
 
   const t0 = Date.now();
   await ev(`window.__inputs[${JSON.stringify(INPUT)}].value = false`);
+  if (ESCALATE) await ev(`window.__inputs[${JSON.stringify(ESCALATE)}].value = false`);
   const frames = [];
   while (Date.now() - t0 < 2200) {
     const f = await shot();
