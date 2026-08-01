@@ -129,7 +129,7 @@ describe("accessible name (WCAG 2.5.3 Label in Name)", () => {
     websites: "Sites that respond to every visitor",
     automotive: "Dashboards at 120fps",
     "film-tv-broadcast": "Live graphics that never miss",
-    campaigns: "Wrapped moments, made personal",
+    campaigns: "Recaps that know who you are",
   };
 
   for (const [i, expected] of cases.entries()) {

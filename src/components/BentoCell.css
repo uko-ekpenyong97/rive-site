@@ -68,6 +68,9 @@
   justify-content: center;
   background: var(--surface-overlay);
   border-radius: var(--radius-md);
+  /* Media filling this box (TileVideo) would otherwise square off the corners
+     the radius just rounded. */
+  overflow: hidden;
 }
 
 .bento-cell__placeholder {

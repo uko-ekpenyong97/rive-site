@@ -1,5 +1,4 @@
-import Button from "../components/Button";
-import DemoSlot from "../components/DemoSlot";
+import Hero from "../components/Hero";
 import Nav from "../components/Nav";
 import LogoMarquee from "../components/LogoMarquee";
 import WorkflowStack from "../components/WorkflowStack";
@@ -20,40 +19,7 @@ function Home() {
       <div className="container">
         <Nav />
 
-        <section className="hero">
-          <div className="hero__body">
-            {/* Copy column */}
-            <div className="hero__copy">
-              <span className="hero__eyebrow">
-                BEHIND SPOTIFY WRAPPED, DUOLINGO, AND LINKEDIN
-              </span>
-              <h1 className="hero__title">
-                Interactive graphics that ship straight to production
-              </h1>
-              <p className="hero__subhead">
-                Design, animate, and code in one tool — then run the same file
-                natively on web, mobile, games, and cars.
-              </p>
-              <p className="hero__range">
-                From a single button to two billion users.
-              </p>
-              <div className="hero__ctas">
-                <Button variant="primary" href="https://editor.rive.app">
-                  Open the editor
-                </Button>
-                <Button variant="secondary" href="#">
-                  See it in action
-                </Button>
-              </div>
-            </div>
-
-            {/* Demo slot */}
-            <DemoSlot
-              className="hero__demo"
-              label="● HERO RIVE DEMO — LIVE, HOVER, DRAG, SCRUB"
-            />
-          </div>
-        </section>
+        <Hero />
 
         <LogoMarquee />
 

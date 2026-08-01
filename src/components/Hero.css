@@ -1,0 +1,194 @@
+/* Centred single-column hero. Replaced the two-column copy + 620px DemoSlot
+   layout when the Rive CTAs landed — the CTAs are the demo now. */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-6);
+  padding: var(--space-16) 0 var(--space-8);
+
+  /* The rocket canvas is 500px wide against a ~150px button, so it extends well
+     past the CTA row. Nothing in the page clipped horizontally before this, so
+     that overflow could push page width and produce a horizontal scrollbar.
+     `clip` rather than `hidden`: it does not create a scroll container, and
+     because the other axis stays `visible` both values are honoured as
+     specified — so the rocket still spills vertically, which is the point. */
+  overflow-x: clip;
+}
+
+/* The logotype itself, not letterspaced type. Replaced an amber text "RIVE"
+   eyebrow: the live site opens with the mark, and the mark is what the footer
+   already draws — both now read from RIVE_WORDMARK_PATH, so the letterforms
+   have one source. `currentColor` on the path means the colour is set here. */
+.hero__wordmark {
+  display: block;
+  color: var(--text-primary);
+}
+
+.hero__wordmark svg {
+  display: block;
+  /* 26px tall; the 275×50 viewBox makes that ~143px wide. */
+  height: 26px;
+  width: auto;
+}
+
+.hero__title {
+  margin: 0;
+  max-width: 16ch;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.08;
+  color: var(--text-heading);
+}
+
+.hero__subhead {
+  margin: 0;
+  max-width: 56ch;
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.hero__range {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+/* NO RESERVED SPACE. The canvases are absolutely positioned, so they cannot
+   shift layout and nothing needs to make room for them. An earlier version
+   reserved 210px above and below this row "for the overflow" and made the hero
+   1044px against a 620px pre-Rive baseline — 68% taller, all of it dead.
+
+   The margin here is rhythm, not reservation: 24px of it plus the stack's own
+   24px gap puts the CTA row 48px under the proof line, and the status line sits
+   24px under the CTAs on the stack gap alone. */
+.hero__ctas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Tuned away from the measured 6px, which read too tight once the buttons took
+     their full size. A token rather than a measured value, because this is now
+     our call and not a copied number: --space-3 and --space-4 tie for "nearest
+     to 14px", and 12px is the smaller step. */
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+
+  /* How far DOWNLOADS recedes while GET STARTED is hovered. A feel knob, exposed
+     as a property so it can be dialled without touching a selector — dial, then
+     bake the default here. */
+  --cta-dim-opacity: 0.4;
+}
+
+/* The rocket's canvas overhangs the DOWNLOADS button, and on the live site the
+   smoke drifts OVER it: rocket subtree at z-index 1, DOWNLOADS at 0. Ours had it
+   the other way round purely from DOM order (both were `z-index: auto`), so
+   DOWNLOADS occluded the art.
+   The canvas stays `pointer-events: none`, so raising the primary changes paint
+   order only — DOWNLOADS remains fully clickable under the overhang, which
+   `elementFromPoint` at its centre pins.
+   Box dimensions are REPLICA GEOMETRY, measured from rive.app @1456px on
+   2026-07-31: GET STARTED 152×47, DOWNLOADS 146×45. Explicit px because they are
+   the original's numbers rather than design-system values; Tailwind's preflight
+   puts everything in `border-box`, so they include padding and the 1px border. */
+.hero__ctas .rive-button[data-variant="primary"] {
+  width: 152px;
+  height: 47px;
+  z-index: 1;
+}
+
+.hero__ctas .rive-button[data-variant="secondary"] {
+  width: 146px;
+  height: 45px;
+  z-index: 0;
+  transition: opacity 200ms var(--ease-standard);
+}
+
+/* Driven from the PRIMARY's hover, not from `:hover` on this element — the
+   point is that hovering GET STARTED alone dims DOWNLOADS, without the pointer
+   ever having to leave it. */
+.hero__ctas[data-primary-hovered] .rive-button[data-variant="secondary"] {
+  opacity: var(--cta-dim-opacity);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__ctas .rive-button[data-variant="secondary"] {
+    transition: none;
+  }
+}
+
+.hero__status {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------- Entrance cascade
+
+   Reading order, re-indexed for the centred stack (the old order ended at 6
+   with the retired DemoSlot). Nav stays 0 and lives outside .hero; the shared
+   `hero-enter` keyframe and its tuning knobs stay in Home.css because Nav
+   shares them. */
+
+.hero__wordmark {
+  --enter-index: 1;
+}
+.hero__title {
+  --enter-index: 2;
+}
+.hero__subhead {
+  --enter-index: 3;
+}
+.hero__range {
+  --enter-index: 4;
+}
+.hero__ctas {
+  --enter-index: 5;
+}
+.hero__status {
+  --enter-index: 6;
+}
+
+.hero__wordmark,
+.hero__title,
+.hero__subhead,
+.hero__range,
+.hero__ctas,
+.hero__status {
+  animation: hero-enter var(--hero-enter-dur) var(--hero-enter-ease)
+    calc(var(--enter-index) * var(--hero-enter-stagger)) both;
+}
+
+/* Each animation carries its own from-state, so removing the animation leaves
+   every element at its natural final state — no opacity-0 flash. */
+@media (prefers-reduced-motion: reduce) {
+  .hero__wordmark,
+  .hero__title,
+  .hero__subhead,
+  .hero__range,
+  .hero__ctas,
+  .hero__status {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------- Responsive */
+
+@media (max-width: 1024px) {
+  .hero {
+    padding: var(--space-8) 0;
+  }
+
+  .hero__ctas {
+    flex-direction: column;
+    width: 100%;
+  }
+}

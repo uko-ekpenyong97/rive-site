@@ -189,10 +189,17 @@ by `--space-3`. Reel-to-quote gap is `--space-8` (32).
 Base cell is the existing `BentoCell` component; this documents the **expanding**
 variant and the current Campaigns copy.
 
-**Copy as shipped:**
-- Eyebrow `CAMPAIGNS` · Title **"Wrapped moments, made personal"**
+**Copy as shipped** (retitled 2026-07-31 — see below):
+- Eyebrow `CAMPAIGNS` · Title **"Recaps that know who you are"**
 - Description **"Interactive year-in-review campaigns, personalized for millions."**
 - Size `wide`, `grid-column: 1 / -1`, `grid-row: 3`
+
+The title previously read "Wrapped moments, made personal". It changed when the
+tile started running Strava Year in Sport footage and "Wrapped" — Spotify's
+word — became visibly wrong over it. The description was already brand-neutral
+and is unchanged. This cell now also carries tile media, so the Figma frame
+should show the `wide` cell with a filled media slot rather than the `MEDIA`
+placeholder; `objectPosition` is `50% 46%`.
 
 | Base cell | Token / value |
 |---|---|

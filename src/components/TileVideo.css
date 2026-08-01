@@ -1,0 +1,42 @@
+/* The closed bento tile's media loop. No chrome of its own: the cell owns the
+   hover states and the `+` signpost, and this sits underneath both. */
+
+.tile-video {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* The media container owns the radius; take its computed value rather than
+     restating a token, so the two can never disagree. */
+  border-radius: inherit;
+  background: var(--surface-overlay);
+}
+
+.tile-video__media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Right-to-left: scale about the centre first, then shift. Both default to
+     no-ops, so a clip without a `crop` is untransformed. See TileVideo.tsx for
+     where the two numbers come from. */
+  transform: translateY(var(--tile-shift, 0)) scale(var(--tile-zoom, 1));
+}
+
+/* States that the still is deliberate. NOT a play control — clicking the cell
+   opens the modal and never plays this video, so a ▸ would promise an
+   interaction that cannot happen. Same mono/muted treatment as the cell's own
+   MEDIA placeholder, on a quiet plate because one source is a white page and
+   muted-on-white is unreadable. Bottom-LEFT, clear of the `+` signpost. */
+.tile-video__paused {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-overlay);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}

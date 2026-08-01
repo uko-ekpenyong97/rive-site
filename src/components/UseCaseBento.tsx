@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import BentoCell from "./BentoCell";
 import SectionHeader from "./SectionHeader";
+import TileVideo from "./TileVideo";
 import { UseCaseModal } from "./UseCaseModal/UseCaseModal";
 import {
   getUseCase,
@@ -62,11 +63,13 @@ const CELLS: {
   {
     slug: "campaigns",
     size: "wide",
-    /* Retitled when the modal was anchored on Strava Year in Sport: the cell
-       used to lead with Spotify Wrapped and its numbers, which both mismatched
-       the modal behind it and kept Spotify material outside CaseStudies, where
-       that story is reserved. */
-    title: "Wrapped moments, made personal",
+    /* Retitled twice, both times to catch up with the modal behind it. First
+       (2026-07-26) off Spotify Wrapped and its numbers, when the modal was
+       re-anchored on Strava. Then again (2026-07-31) when the tile started
+       running Strava footage and "Wrapped" — Spotify's word — was visibly wrong
+       over it. The personalization-at-scale angle is what both titles were
+       protecting; only the borrowed brand word is gone. */
+    title: "Recaps that know who you are",
     description: "Interactive year-in-review campaigns, personalized for millions.",
     gridColumn: "1 / -1",
     gridRow: 3,
@@ -119,6 +122,18 @@ export function UseCaseBento({ dials, reducedMotion }: UseCaseBentoProps = {}) {
               title={cell.title}
               description={cell.description}
               href={content?.pageHref ?? "#"}
+              /* BentoCell already had a `media` slot; the tile loop fills it.
+                 A use case with no `tileMedia` (campaigns — see the source map
+                 in useCaseContent.ts) passes nothing and keeps the labelled
+                 placeholder, which is a real state here rather than a gap. */
+              media={
+                content?.tileMedia ? (
+                  <TileVideo
+                    media={content.tileMedia}
+                    reducedMotion={reducedMotion}
+                  />
+                ) : undefined
+              }
               onExpand={content ? () => setActive(content) : undefined}
               expandLabel={content?.name}
               onPointerEnter={content ? () => armPreload(content) : undefined}

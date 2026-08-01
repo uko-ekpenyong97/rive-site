@@ -58,3 +58,36 @@
 .nav__talk:hover {
   color: var(--text-accent);
 }
+
+/* The cat's 269×150 artboard is anchored near its own top (anchorY 0.2), so the
+   art hangs DOWNWARD out of the nav bar and over the hero beneath it. The button
+   itself stays entirely inside the nav row — only paint leaves it, never layout,
+   because the canvas is absolutely positioned.
+
+   The nav therefore has to sit above the hero in paint order, or the cat would
+   be covered by the hero's own content as it hangs into it. */
+.nav {
+  position: relative;
+  z-index: 2;
+}
+
+/* REPLICA GEOMETRY, measured from rive.app @1456px on 2026-07-31: their nav CTA
+   is 119×34. Sized to match because the cat's anchors are expressed relative to
+   this box — anchorX 0.5037 / anchorY 0.1867 land the canvas at exactly
+   button-left − 76px and button-top − 11px only at these dimensions. Explicit px
+   rather than tokens for the same reason as the hero CTAs: copied numbers, not
+   design-system values. */
+.nav__cta {
+  z-index: 2;
+  width: 119px;
+  height: 34px;
+}
+
+/* Nothing in the nav may clip: the whole point of the overflow pattern is that
+   the animation leaves the button's box, and here it leaves the nav bar too.
+   Stated rather than relied upon, since a future `overflow: hidden` on either of
+   these would silently crop the cat to a rectangle. */
+.nav,
+.nav__right {
+  overflow: visible;
+}
