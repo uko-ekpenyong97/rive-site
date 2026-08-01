@@ -110,6 +110,7 @@ This project is on a Figma **Professional** plan, so live Code Connect in Dev Mo
 - Community thumbnails — `npm run fetch:community` harvests the CommunityStrip and CommunityWall from the live marketplace pages: it asserts **CC BY** before including a file, cross-checks the parsed creator against the embedded username, encodes with `sharp` (not `sips` — these pages serve WebP `og:image`s, which sips refuses to write), and pixel-verifies every thumbnail before the script exits. AVIF, not PNG: the same 18 wall thumbnails are 3.60 MB as 640px PNG and 0.21 MB as 640px AVIF, so the container is the lever, not the resolution. Never hand-edit the harvested titles/creators — re-run the script.
 - Prefer assets served by the Figma MCP; if it returns a localhost source, use it directly and do not create placeholders.
 - Do not install new icon packages without reason — check what's already in the payload/repo first.
+- IMPORTANT: `.context/todos.md` is load-bearing project state — sessions must never truncate or rewrite it wholesale; append and edit surgically. `.context/` is gitignored, so there is no history to recover it from.
 
 ## Rive assets
 
