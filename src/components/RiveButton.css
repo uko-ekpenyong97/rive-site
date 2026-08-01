@@ -56,10 +56,12 @@
 /* ------------------------------------------------------------ canvas layer */
 
 .rive-button__canvas {
-  /* DEFAULT: never a pointer target. The button is the hitbox and this layer
-     only paints, so a 500x500 transparent canvas cannot swallow hovers meant
-     for the DotField or block text selection around the CTA.
-     A file that carries its own listeners overrides this — see below. */
+  /* ALWAYS inert, for every file, with no override anywhere. The button is the
+     entire hitbox and this layer only paints, so a 500×500 transparent canvas
+     can neither swallow hovers meant for the DotField nor block text selection
+     around the CTA — and nothing below the button becomes interactive.
+     This matches rive.app's own arrangement; an earlier build had a mode that
+     handed the canvas its own pointer events, and it is gone. */
   pointer-events: none;
   display: block;
   width: var(--rive-button-w);
@@ -90,19 +92,6 @@
     calc(-1 * var(--rive-anchor-y, 50%))
   );
   z-index: 0;
-}
-
-/* A file with its own pointer listeners must RECEIVE events — the runtime binds
-   them to this canvas, and with `pointer-events: none` they would never fire.
-   Safe because the canvas is a child of the <a>/<button>, so a click on the art
-   activates the CTA and keyboard activation is untouched.
-
-   The cost, and it is real: this element intercepts pointer events across its
-   whole box, including transparent regions, so hero copy underneath it is not
-   selectable. Only the rocket is in this mode. A sibling CTA that the canvas
-   overlaps is kept clickable explicitly — see .hero__ctas in Hero.css. */
-.rive-button__canvas[data-pointer="listeners"] {
-  pointer-events: auto;
 }
 
 /* A small mark in normal flow instead — the R logo beside its DOM label. */

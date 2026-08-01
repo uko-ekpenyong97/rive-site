@@ -120,33 +120,47 @@ function siteConfigs() {
        silently reports one input out of five. A checker that verifies a subset
        while printing success is the precise failure mode this script exists to
        prevent — see the header. */
-    const inputs = [];
-    const open = block.indexOf("declaredInputs:");
-    if (open !== -1) {
+    /** Bracket-matched slice of `key: [ ... ]`, or null when the key is absent. */
+    const arrayAfter = (key) => {
+      const open = block.indexOf(`${key}:`);
+      if (open === -1) return null;
       const from = block.indexOf("[", open);
+      if (from === -1) return null;
       let depth = 0;
-      let end = -1;
       for (let i = from; i < block.length; i++) {
         if (block[i] === "[") depth++;
-        else if (block[i] === "]" && --depth === 0) {
-          end = i;
-          break;
-        }
+        else if (block[i] === "]" && --depth === 0) return block.slice(from, i);
       }
-      if (end === -1) {
-        fail(`${SITE}: unterminated declaredInputs array — cannot verify inputs`);
-        continue;
-      }
-      for (const m of block.slice(from, end).matchAll(/name:\s*"([^"]+)"/g)) {
-        inputs.push(m[1]);
-      }
+      return undefined; // unterminated
+    };
+
+    const declared = arrayAfter("declaredInputs");
+    if (declared === undefined) {
+      fail(`${SITE}: unterminated declaredInputs array — cannot verify inputs`);
+      continue;
     }
-    const pointer = block.match(/pointer:\s*"(listeners|manual|none)"/);
+    const inputs = declared
+      ? [...declared.matchAll(/name:\s*"([^"]+)"/g)].map((m) => m[1])
+      : [];
+
+    /* Verified to EXIST in the bytes, deliberately never written. The check is
+       the whole point of the field: "we looked and chose not to" has to be
+       distinguishable from "we never knew", and only the artifact can settle
+       whether the input is still there to be chosen against. */
+    const undriven = arrayAfter("undrivenInputs");
+    if (undriven === undefined) {
+      fail(`${SITE}: unterminated undrivenInputs array — cannot verify inputs`);
+      continue;
+    }
+    const undrivenInputs = undriven
+      ? [...undriven.matchAll(/"([^"]+)"/g)].map((m) => m[1])
+      : [];
+
+    const pointer = block.match(/pointer:\s*"(manual|none)"/);
     if (!pointer) {
       fail(`${SITE}: an asset declares no pointer model — cannot verify wiring`);
       continue;
     }
-    const inert = /listenersInert:\s*true/.test(block);
     out.push({
       where: SITE,
       /* "/rive/site/x.riv" is a URL path, rooted at public/. */
@@ -154,8 +168,8 @@ function siteConfigs() {
       artboard: artboard[1],
       stateMachine: stateMachine[1],
       inputs,
+      undrivenInputs,
       pointer: pointer[1],
-      listenersInert: inert,
     });
   }
   return out;
@@ -260,49 +274,59 @@ for (const cfg of configs) {
       );
       continue;
     }
-    inputNote = cfg.inputs.length
-      ? `  inputs ${cfg.inputs.length}/${names.length}`
-      : `  no inputs (autonomous)`;
-  }
-
-  /* POINTER-MODEL PARITY. The single most consequential fact about one of these
-     files is whether it carries its own pointer listeners, and it is not
-     guessable: get-started-cat.riv has shapes called Hitbox_* and NO listeners,
-     get-started-rocket.riv has listeners and no such shape. Wiring the wrong
-     model gives a button that looks right and reacts wrongly (or not at all),
-     which nothing else in the build can see. */
-  if (cfg.pointer) {
-    const listens = hit.listeners?.[cfg.stateMachine];
-    if (listens === null || listens === undefined) {
+    /* The undriven list is checked just as hard as the driven one. If one of
+       these disappears from the file, the annotation "present in the file, never
+       driven by Rive's own site" has quietly become false, and the decision it
+       records is no longer about anything. */
+    const goneUndriven = cfg.undrivenInputs.filter((n) => !names.includes(n));
+    if (goneUndriven.length) {
       fail(
-        `${rel}: could not read listeners for "${cfg.stateMachine}" — cannot ` +
-          `verify pointer model "${cfg.pointer}"\n      configured in ${cfg.where}`,
+        `${rel}: config lists undriven input(s) [${goneUndriven.join(", ")}] that ` +
+          `"${cfg.stateMachine}" does not have — file has [${names.join(", ") || "none"}]\n` +
+          `      configured in ${cfg.where}`,
       );
       continue;
     }
-    /* `hasListeners` is necessary but not sufficient: get-started-rocket.riv
-       reports listeners that measurably never fire (see riveSiteAssets.ts for
-       the A/B). So a "manual" model on a file WITH listeners is allowed, but
-       only when the config says so out loud via `listenersInert`. The dangerous
-       direction — claiming "listeners" on a file that has none, which wires up
-       nothing at all — is always a failure. */
-    const want = listens ? "listeners" : cfg.inputs.length ? "manual" : "none";
-    const allowed =
-      cfg.pointer === want ||
-      (listens && cfg.pointer === "manual" && cfg.listenersInert);
-    if (!allowed) {
+    /* Driving something also listed as undriven is contradictory on its face. */
+    const both = cfg.inputs.filter((n) => cfg.undrivenInputs.includes(n));
+    if (both.length) {
       fail(
-        `${rel}: config says pointer: "${cfg.pointer}" but the file ` +
-          `${listens ? "HAS" : "has NO"} listeners and declares ` +
-          `${cfg.inputs.length} input(s) — expected "${want}"` +
-          (listens && cfg.pointer === "manual"
-            ? ` (set listenersInert: true if the listeners are measurably inert)`
-            : "") +
+        `${rel}: input(s) [${both.join(", ")}] are both driven and listed as undriven\n` +
+          `      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+    inputNote = cfg.inputs.length
+      ? `  inputs ${cfg.inputs.length} driven` +
+        (cfg.undrivenInputs.length
+          ? ` + ${cfg.undrivenInputs.length} present-not-driven`
+          : "") +
+        ` / ${names.length} in file`
+      : `  no inputs (autonomous)`;
+  }
+
+  /* POINTER-MODEL PARITY. The canvas is display-only for every file — there is
+     no canvas-driven mode any more, because that is not how rive.app works — so
+     the only question left is whether a file has inputs to drive at all. A file
+     with inputs must be "manual"; a file with none must be "none". Getting this
+     wrong gives a button that looks right and reacts wrongly (or not at all),
+     which nothing else in the build can see.
+
+     Listener presence is still REPORTED, because it is real and hard-won
+     information (get-started-rocket.riv carries listeners that measurably never
+     fire — see the A/B in riveSiteAssets.ts), but it no longer selects a model. */
+  if (cfg.pointer) {
+    const listens = hit.listeners?.[cfg.stateMachine];
+    const want = cfg.inputs.length ? "manual" : "none";
+    if (cfg.pointer !== want) {
+      fail(
+        `${rel}: config says pointer: "${cfg.pointer}" but the file declares ` +
+          `${cfg.inputs.length} driven input(s) — expected "${want}"` +
           `\n      configured in ${cfg.where}`,
       );
       continue;
     }
-    inputNote += `  pointer:${cfg.pointer}${cfg.listenersInert ? " (listeners inert)" : ""}`;
+    inputNote += `  pointer:${cfg.pointer}${listens ? " (file has listeners; canvas is display-only)" : ""}`;
   }
 
   const sm = cfg.stateMachine ? `  sm ${cfg.stateMachine}` : "";

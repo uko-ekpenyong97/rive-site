@@ -71,8 +71,16 @@
   z-index: 2;
 }
 
+/* REPLICA GEOMETRY, measured from rive.app @1456px on 2026-07-31: their nav CTA
+   is 119×34. Sized to match because the cat's anchors are expressed relative to
+   this box — anchorX 0.5037 / anchorY 0.1867 land the canvas at exactly
+   button-left − 76px and button-top − 11px only at these dimensions. Explicit px
+   rather than tokens for the same reason as the hero CTAs: copied numbers, not
+   design-system values. */
 .nav__cta {
   z-index: 2;
+  width: 119px;
+  height: 34px;
 }
 
 /* Nothing in the nav may clip: the whole point of the overflow pattern is that

@@ -20,7 +20,8 @@
     "analyze:crop": "node scripts/analyze-crop.mjs",
     "convert:poster": "node scripts/convert-poster.mjs",
     "posters:video": "node scripts/video-posters.mjs",
-    "fetch:community": "node scripts/fetch-community.mjs"
+    "fetch:community": "node scripts/fetch-community.mjs",
+    "check:exit": "node scripts/check-exit-animation.mjs"
   },
   "dependencies": {
     "@rive-app/react-webgl2": "^4.30.0",

@@ -18,18 +18,20 @@
   overflow-x: clip;
 }
 
+/* The logotype itself, not letterspaced type. Replaced an amber text "RIVE"
+   eyebrow: the live site opens with the mark, and the mark is what the footer
+   already draws — both now read from RIVE_WORDMARK_PATH, so the letterforms
+   have one source. `currentColor` on the path means the colour is set here. */
 .hero__wordmark {
-  font-family: var(--font-display);
-  font-size: var(--font-size-eyebrow);
-  font-weight: 500;
-  /* The live site's letterspaced mark. CSS, so the accessible name stays "RIVE"
-     rather than being announced letter by letter. */
-  letter-spacing: 0.62em;
-  /* Letterspacing adds trailing space after the last glyph; pull it back so the
-     mark reads optically centred. */
-  text-indent: 0.62em;
-  text-transform: uppercase;
-  color: var(--text-accent);
+  display: block;
+  color: var(--text-primary);
+}
+
+.hero__wordmark svg {
+  display: block;
+  /* 26px tall; the 275×50 viewBox makes that ~143px wide. */
+  height: 26px;
+  width: auto;
 }
 
 .hero__title {
@@ -70,17 +72,54 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
+  /* Tuned away from the measured 6px, which read too tight once the buttons took
+     their full size. A token rather than a measured value, because this is now
+     our call and not a copied number: --space-3 and --space-4 tie for "nearest
+     to 14px", and 12px is the smaller step. */
+  gap: var(--space-3);
   margin-top: var(--space-6);
+
+  /* How far DOWNLOADS recedes while GET STARTED is hovered. A feel knob, exposed
+     as a property so it can be dialled without touching a selector — dial, then
+     bake the default here. */
+  --cta-dim-opacity: 0.4;
 }
 
-/* The rocket's canvas is 500px wide and paints over this button. It is inert to
-   pointers today (the rocket ended up on the manual model), so this lift is
-   insurance rather than a fix: if any CTA canvas is ever switched to the
-   listeners model it would otherwise swallow the neighbouring button's clicks.
-   Verified in the browser with elementFromPoint at the secondary's centre. */
-.hero__ctas .rive-button[data-variant="secondary"] {
+/* The rocket's canvas overhangs the DOWNLOADS button, and on the live site the
+   smoke drifts OVER it: rocket subtree at z-index 1, DOWNLOADS at 0. Ours had it
+   the other way round purely from DOM order (both were `z-index: auto`), so
+   DOWNLOADS occluded the art.
+   The canvas stays `pointer-events: none`, so raising the primary changes paint
+   order only — DOWNLOADS remains fully clickable under the overhang, which
+   `elementFromPoint` at its centre pins.
+   Box dimensions are REPLICA GEOMETRY, measured from rive.app @1456px on
+   2026-07-31: GET STARTED 152×47, DOWNLOADS 146×45. Explicit px because they are
+   the original's numbers rather than design-system values; Tailwind's preflight
+   puts everything in `border-box`, so they include padding and the 1px border. */
+.hero__ctas .rive-button[data-variant="primary"] {
+  width: 152px;
+  height: 47px;
   z-index: 1;
+}
+
+.hero__ctas .rive-button[data-variant="secondary"] {
+  width: 146px;
+  height: 45px;
+  z-index: 0;
+  transition: opacity 200ms var(--ease-standard);
+}
+
+/* Driven from the PRIMARY's hover, not from `:hover` on this element — the
+   point is that hovering GET STARTED alone dims DOWNLOADS, without the pointer
+   ever having to leave it. */
+.hero__ctas[data-primary-hovered] .rive-button[data-variant="secondary"] {
+  opacity: var(--cta-dim-opacity);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__ctas .rive-button[data-variant="secondary"] {
+    transition: none;
+  }
 }
 
 .hero__status {

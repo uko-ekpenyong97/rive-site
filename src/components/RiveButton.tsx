@@ -18,6 +18,15 @@ export interface RiveButtonProps {
    */
   reducedMotion?: boolean;
   className?: string;
+  /**
+   * Fired from the button's own enter/leave, so a sibling can react to this CTA
+   * being hovered (the hero dims DOWNLOADS while GET STARTED is hovered).
+   *
+   * Deliberately NOT gated on the canvas being live: this is a DOM affordance
+   * and it has to work when the 2.41 MB wasm is still in flight or has failed,
+   * which is the same reasoning that makes the whole component DOM-first.
+   */
+  onHoverChange?: (hovered: boolean) => void;
 }
 
 /**
@@ -36,13 +45,17 @@ export interface RiveButtonProps {
  * dead space: an earlier version reserved 210px above and below the CTA row and
  * made the hero 68% taller than it needed to be, for nothing.
  *
- * POINTER MODEL IS PROBED, NOT CHOSEN (`asset.pointer`, see riveSiteAssets.ts).
- * A file that carries its own listeners resolves pointer position against its
- * own art, so the canvas receives events and we write nothing — correct by
- * construction, because the hitboxes and the art are the same file. A file with
- * no listeners is driven from the BUTTON's hover, so a pointer outside the
- * button provokes nothing. Getting this backwards is easy: the cat has shapes
- * named `Hitbox_*` and no listeners, the rocket has listeners and no such shape.
+ * THE CANVAS IS DISPLAY-ONLY. It is `pointer-events: none` for every file, with
+ * no exceptions — the live site's own arrangement. The BUTTON is the entire
+ * hitbox, so nothing outside its rect can provoke the animation and nothing
+ * below the button is interactive. An earlier build let a file with its own
+ * listeners take the pointer directly; that is not how rive.app works, and a
+ * 500×500 transparent canvas that accepts pointers makes the copy underneath it
+ * unselectable in exchange for nothing.
+ *
+ * Inputs are therefore always driven from the button's own hover, and only the
+ * inputs the probe confirmed (`declaredInputs`). Anything in `undrivenInputs` is
+ * verified to exist and deliberately left alone.
  *
  * DOM-FIRST, CANVAS-ENHANCES. The button is a fully working DOM button before
  * any Rive code runs, and stays one if Rive never arrives. This is not a
@@ -74,6 +87,7 @@ export function RiveButton({
   variant = "primary",
   reducedMotion = false,
   className,
+  onHoverChange,
 }: RiveButtonProps) {
   const [failed, setFailed] = useState(false);
 
@@ -99,9 +113,16 @@ export function RiveButton({
   const mountCanvas = wantsCanvas && !failed;
   const canvasLive = mountCanvas && Boolean(rive);
 
-  /* Only a "manual" file is ever driven. For a "listeners" file the runtime owns
-     the pointer entirely, and writing its inputs alongside would fight it. */
+  /* An autonomous file ("none") has nothing to drive and gets no handlers. */
   const drivesManually = asset.pointer === "manual";
+
+  /* A single input spanning the whole button needs no position — entering the
+     button IS the signal. Splitting on this keeps per-move work off the rocket,
+     which is the heaviest canvas on the page. */
+  const singleInput =
+    asset.declaredInputs.length === 1 &&
+    asset.declaredInputs[0].zone[0] === 0 &&
+    asset.declaredInputs[0].zone[1] === 1;
 
   /* Resolved once per load. `stateMachineInputs` walks the machine every call,
      so caching the handles keeps pointermove off that path. */
@@ -122,8 +143,8 @@ export function RiveButton({
    * Drive the declared inputs from the pointer's position across the button.
    * `t` is 0→1 left-to-right, or null for "pointer has left".
    *
-   * Only ever reached by a "manual" file. In practice that is the cat, which
-   * splits the button into five zones and leans toward the cursor.
+   * `undrivenInputs` are never touched here — that list exists precisely so the
+   * choice not to write them is explicit and checkable.
    */
   const applyHover = (t: number | null) => {
     for (const hover of asset.declaredInputs) {
@@ -134,17 +155,25 @@ export function RiveButton({
     }
   };
 
-  /* Measured against the BUTTON, not the canvas and not a wrapper: the zones are
-     the button's own width, so leaving the button clears every zone and the art
+  /* Measured against the BUTTON, not the canvas and not a wrapper: the halves
+     are the button's own width, so leaving the button clears both and the art
      never reacts to a pointer that is merely near it. */
   const handlePointerMove = (event: React.PointerEvent<HTMLElement>) => {
-    if (!canvasLive || !drivesManually) return;
+    if (!canvasLive || !drivesManually || singleInput) return;
     const rect = event.currentTarget.getBoundingClientRect();
     if (!rect.width) return;
     applyHover((event.clientX - rect.left) / rect.width);
   };
 
+  /* Single-input files (the rocket) switch on entering the button at all. */
+  const handlePointerEnter = () => {
+    onHoverChange?.(true);
+    if (!canvasLive || !drivesManually || !singleInput) return;
+    applyHover(0.5);
+  };
+
   const handlePointerLeave = () => {
+    onHoverChange?.(false);
     if (!canvasLive || !drivesManually) return;
     applyHover(null);
   };
@@ -160,6 +189,11 @@ export function RiveButton({
   } as React.CSSProperties;
 
   const hideLabel = canvasLive && asset.paintsOwnLabel;
+
+  /* An autonomous file with a hover listener still needs enter/leave — hence
+     `onHoverChange` counting here independently of `drivesManually`. */
+  const wantsMove = drivesManually && !singleInput;
+  const wantsEnter = onHoverChange !== undefined || (drivesManually && singleInput);
 
   const content = (
     <>
@@ -196,10 +230,16 @@ export function RiveButton({
     "data-layout": asset.layout,
     "data-pointer": asset.pointer,
     "data-canvas": canvasLive ? "live" : "dom",
-    /* Attached only for a manual file. A listeners file gets no DOM handlers at
-       all, so there is nothing to race the runtime's own hit-testing. */
-    ...(drivesManually
-      ? { onPointerMove: handlePointerMove, onPointerLeave: handlePointerLeave }
+    /* ONLY on the button element — never a wrapper and never the canvas. That is
+       what makes the hitbox exactly the button rect: no other node in the tree
+       can start an animation or report a hover.
+         move  — halves need the pointer's position across the button
+         enter — single-input files, and anyone listening via onHoverChange
+         leave — whenever either of the above is attached */
+    ...(wantsMove ? { onPointerMove: handlePointerMove } : {}),
+    ...(wantsEnter ? { onPointerEnter: handlePointerEnter } : {}),
+    ...(wantsMove || wantsEnter
+      ? { onPointerLeave: handlePointerLeave }
       : {}),
   };
 

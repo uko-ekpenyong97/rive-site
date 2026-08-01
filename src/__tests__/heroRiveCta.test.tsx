@@ -91,6 +91,9 @@ const {
   R_LOGO_SHUFFLE,
   RIVE_SITE_ASSETS,
 } = await import("../components/riveSiteAssets");
+const { RIVE_WORDMARK_PATH, RIVE_WORDMARK_VIEWBOX } = await import(
+  "../components/riveWordmark"
+);
 
 /* jsdom gives `import.meta.url` an http scheme, so fileURLToPath cannot be used
    here the way the node-environment suites use it. Vitest runs from the project
@@ -143,7 +146,6 @@ describe("hero structure", () => {
       "hero__subhead",
       "hero__range",
       "hero__ctas",
-      "hero__status",
     ].map((cls) => ssr.indexOf(cls));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
@@ -160,11 +162,21 @@ describe("hero structure", () => {
     expect(ssr.includes("hero__demo")).toBe(false);
   });
 
-  it("status line is a prop with the live site's default", () => {
-    expect(ssr).toContain("SCRIPTING IS LIVE");
-    expect(renderToString(<Hero status="RENDER IS LIVE" />)).toContain(
-      "RENDER IS LIVE",
-    );
+  it("the hero ships no status line, and reserves nothing for one", () => {
+    /* Retired from the hero but kept as a slot. Absent must render NOTHING —
+       not an empty <p> — so the stack simply ends at the CTAs. */
+    expect(ssr.includes("hero__status")).toBe(false);
+    expect(ssr.includes("SCRIPTING IS LIVE")).toBe(false);
+  });
+
+  it("the status slot still works when a caller passes one", () => {
+    const withStatus = renderToString(<Hero status="RENDER IS LIVE" />);
+    expect(withStatus).toContain("hero__status");
+    expect(withStatus).toContain("RENDER IS LIVE");
+  });
+
+  it("the status slot keeps its entrance index for when it returns", () => {
+    expect(readHeroCss()).toContain(".hero__status");
   });
 
   it("reserves no vertical space for the overflow", () => {
@@ -178,13 +190,83 @@ describe("hero structure", () => {
   });
 
   it("entrance indices cover the six-element stack with no gap", () => {
-    /* The old order ended at 6 with the DemoSlot; re-indexed for the new stack.
-       A duplicate or missing index makes an element pop out of cascade. */
+    /* Still six: the status line keeps index 6 even though the hero no longer
+       renders it, so restoring it needs no cascade surgery. A duplicate or
+       missing index makes an element pop out of the stagger. */
     const css = readHeroCss();
     const indices = [...css.matchAll(/--enter-index:\s*(\d+)/g)].map((m) =>
       Number(m[1]),
     );
     expect(indices.sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+});
+
+/* ───────────────────────────────────────────────────────────────────────── */
+describe("CTA row: layering, dim, and gap", () => {
+  const css = readHeroCss();
+
+  it("the rocket paints OVER Downloads, matching the live site", () => {
+    /* rive.app puts the rocket subtree at z-index 1 and DOWNLOADS at 0, so the
+       smoke drifts over it. Ours inherited the opposite from DOM order, because
+       both buttons were `z-index: auto`. The browser pass pins the other half:
+       elementFromPoint at Downloads' centre must still return Downloads. */
+    const primary = css.match(/\[data-variant="primary"\]\s*\{[^}]*\}/)?.[0] ?? "";
+    const secondary = css.match(/\[data-variant="secondary"\]\s*\{[^}]*\}/)?.[0] ?? "";
+    expect(/z-index:\s*1/.test(primary)).toBe(true);
+    expect(/z-index:\s*0/.test(secondary)).toBe(true);
+  });
+
+  it("the canvas stays inert, so raising the primary changes paint only", () => {
+    /* The whole reason the z-order lift is safe. If this ever became `auto`, the
+       rocket's 500×500 canvas would start swallowing clicks meant for
+       DOWNLOADS. */
+    const buttonCss = readFileSync(
+      resolve(ROOT, "src/components/RiveButton.css"),
+      "utf8",
+    );
+    expect(buttonCss).toContain("pointer-events: none");
+    expect(buttonCss.includes("pointer-events: auto")).toBe(false);
+  });
+
+  it("dimming is a tunable property, not a hardcoded opacity", () => {
+    expect(css).toContain("--cta-dim-opacity: 0.4");
+    expect(css).toMatch(/opacity:\s*var\(--cta-dim-opacity\)/);
+    expect(css).toMatch(/transition:\s*opacity 200ms/);
+  });
+
+  it("the dim is driven by the PRIMARY's hover, not the secondary's", () => {
+    /* Load-bearing: `:hover` on the secondary would require the pointer to be on
+       DOWNLOADS, which is the opposite of the intended behaviour. */
+    expect(css).toContain('[data-primary-hovered] .rive-button[data-variant="secondary"]');
+    expect(
+      /\.rive-button\[data-variant="secondary"\]:hover\s*\{[^}]*opacity/.test(css),
+    ).toBe(false);
+  });
+
+  it("hovering the primary sets the row's dim flag, canvas or no canvas", () => {
+    /* DOM-first: the dim must work while the 2.41 MB wasm is in flight, so the
+       callback is NOT gated on the canvas being live. */
+    fake.state.neverResolve = true;
+    const el = mount(<Hero />);
+    const row = el.querySelector(".hero__ctas") as HTMLElement;
+    const primary = row.querySelector('[data-variant="primary"]') as HTMLElement;
+    expect(row.hasAttribute("data-primary-hovered")).toBe(false);
+
+    act(() => {
+      primary.dispatchEvent(new MouseEvent("pointerover", { bubbles: true }));
+    });
+    expect(row.hasAttribute("data-primary-hovered")).toBe(true);
+
+    act(() => {
+      primary.dispatchEvent(new MouseEvent("pointerout", { bubbles: true }));
+    });
+    expect(row.hasAttribute("data-primary-hovered")).toBe(false);
+  });
+
+  it("the row gap is the token, not the old measured 6px", () => {
+    const row = css.match(/\.hero__ctas\s*\{[^}]*\}/)?.[0] ?? "";
+    expect(row).toMatch(/gap:\s*var\(--space-3\)/);
+    expect(/gap:\s*6px/.test(row)).toBe(false);
   });
 });
 
@@ -321,15 +403,15 @@ describe("reduced motion", () => {
 });
 
 /* ───────────────────────────────────────────────────────────────────────── */
-describe("pointer model comes from the probe, not from taste", () => {
-  /* The single most consequential fact about each file, and not guessable:
-     get-started-cat.riv contains shapes named Hitbox_left / Hitbox_right /
-     Hitbox_left2 / Hitbox_right2 and has NO listeners; get-started-rocket.riv
-     contains no hitbox-named shape and HAS them. Reading the names gets both
-     backwards. `check:assets` asserts these against the committed bytes on
-     every CI run; these pin the wiring that follows from them. */
+describe("the canvas is display-only; the button is the whole hitbox", () => {
+  /* This replaced a three-mode system in which a file carrying its own pointer
+     listeners took the events directly on its canvas. rive.app does not work
+     that way — its canvases are decoration over an ordinary button — and a
+     500×500 transparent canvas that accepts pointers makes the copy beneath it
+     unselectable for nothing. There is now no code path that gives a canvas
+     pointer events, which is what makes the hitbox provably the button rect. */
 
-  it("each file is on the model MEASUREMENT put it on", () => {
+  it("only two pointer models exist, and each file is on the right one", () => {
     expect({
       cat: GET_STARTED_CAT.pointer,
       rocket: GET_STARTED_ROCKET.pointer,
@@ -337,34 +419,24 @@ describe("pointer model comes from the probe, not from taste", () => {
     }).toEqual({ cat: "manual", rocket: "manual", rLogo: "none" });
   });
 
-  it("the rocket's inert listeners are declared, not silently overridden", () => {
+  it("no asset can ask for a canvas-driven model", () => {
+    /* The union is "manual" | "none". Pinned as data so re-adding a third mode
+       has to come through this test rather than arriving by accident. */
+    const models = RIVE_SITE_ASSETS.map((a) => a.pointer);
+    expect([...new Set(models)].sort()).toEqual(["manual", "none"]);
+    expect(models).not.toContain("listeners");
+  });
+
+  it("the rocket's listeners are recorded as evidence, not as a code path", () => {
     /* The probe says this file HAS listeners; a browser A/B says they never
-       fire (Δ non-transparent pixels: 7 on the listeners model vs 2828 on
-       manual, against an idle noise floor of ±11). Driving it manually is
-       therefore correct — but it is an override of what the artifact reports,
-       so it has to be stated. `check:assets` fails a "manual" model on a
-       listeners-carrying file unless this flag is set. */
-    expect(GET_STARTED_ROCKET.listenersInert).toBe(true);
-    expect(GET_STARTED_CAT.listenersInert).toBe(undefined);
-    expect(R_LOGO_SHUFFLE.listenersInert).toBe(undefined);
-  });
-
-  it("a manual file keeps its canvas inert and drives from the button", () => {
-    for (const asset of [GET_STARTED_CAT, GET_STARTED_ROCKET]) {
-      const el = mount(<RiveButton asset={asset} label="Get started" />);
-      expect(
-        el.querySelector(".rive-button__canvas")?.getAttribute("data-pointer"),
-      ).toBe("manual");
-    }
-  });
-
-  it("an autonomous file is never driven and never receives events", () => {
-    const inputs: { name: string; value: boolean }[] = [];
-    fake.state.inputs.set("State Machine 1", inputs);
-    const el = mount(<RiveButton asset={R_LOGO_SHUFFLE} label="Downloads" />);
+       fire (Δ non-transparent pixels: 7 canvas-driven vs 2828 button-driven,
+       against an idle noise floor of ±11). That finding is kept in the source
+       map because it is true and expensive, but nothing branches on it — the
+       file is driven from its button like every other. */
+    expect(GET_STARTED_ROCKET.pointer).toBe("manual");
     expect(
-      el.querySelector(".rive-button__canvas")?.getAttribute("data-pointer"),
-    ).toBe("none");
+      "listenersInert" in (GET_STARTED_ROCKET as unknown as Record<string, unknown>),
+    ).toBe(false);
   });
 
   it("anchors aim the overflow: cat hangs below, rocket rides above", () => {
@@ -374,41 +446,59 @@ describe("pointer model comes from the probe, not from taste", () => {
     expect(GET_STARTED_CAT.anchorY).toBeLessThan(0.5);
     expect(GET_STARTED_ROCKET.anchorY).toBeGreaterThan(0.5);
   });
+
+  it("anchors reproduce the measured rive.app offsets", () => {
+    /* canvasTop − btnTop = btnH/2 − anchorY·canvasH, and likewise for x. These
+       are the numbers measured off the live site at 1456px on 2026-07-31, so a
+       nudged anchor or a resized button rect fails here rather than drifting. */
+    const rocketTopOffset = 47 / 2 - GET_STARTED_ROCKET.anchorY! * 500;
+    expect(Math.round(rocketTopOffset)).toBe(-328);
+
+    const catLeftOffset = 119 / 2 - GET_STARTED_CAT.anchorX! * 269;
+    const catTopOffset = 34 / 2 - GET_STARTED_CAT.anchorY! * 150;
+    expect(Math.round(catLeftOffset)).toBe(-76);
+    expect(Math.round(catTopOffset)).toBe(-11);
+  });
 });
 
-describe("hover inputs match the probe", () => {
-  it("the cat's zones are NESTED, so the extremes escalate the plain leans", () => {
-    /* Measured, not designed: with exclusive zones, three of the five inputs
-       rendered literally the same frame as idle (pixel delta 0, sd 0.000) and
-       the cat only leaned two ways. `isHoverLeft2` fires only while
-       `isHoverLeft` is also set. Pixel delta vs idle across the button:
-         x           0.05  0.15  0.30  0.50  0.70  0.85  0.95
-         exclusive      0     0    13     0    10     0     0
-         nested       152   172    19     0    14   176   167  */
-    const byName = Object.fromEntries(
-      GET_STARTED_CAT.declaredInputs.map((h) => [h.name, h.zone]),
-    );
-    expect(byName).toEqual({
-      isHoverLeft2: [0, 0.2],
-      isHoverLeft: [0, 0.4],
-      isHovercenter: [0.4, 0.6],
-      isHoverRight: [0.6, 1],
-      isHoverRight2: [0.8, 1],
+describe("hover inputs match the live site's mechanism", () => {
+  it("the cat is two halves, split at the midpoint", () => {
+    /* Observed on rive.app's running instance: the button carries two invisible
+       hitbox halves (LeftHit 60px, RightHit 59px of a 119px button — 0.504 /
+       0.496, a plain midpoint split). Enter left → isHoverLeft, enter right →
+       isHoverRight, cross → swap, leave → both clear. */
+    expect(
+      Object.fromEntries(GET_STARTED_CAT.declaredInputs.map((h) => [h.name, h.zone])),
+    ).toEqual({
+      isHoverLeft: [0, 0.5],
+      isHoverRight: [0.5, 1],
     });
-    /* The extremes must sit INSIDE their plain counterparts, or they never
-       fire. This is the assertion that would have caught the original bug. */
-    expect(byName.isHoverLeft2[0]).toBeGreaterThanOrEqual(byName.isHoverLeft[0]);
-    expect(byName.isHoverLeft2[1]).toBeLessThanOrEqual(byName.isHoverLeft[1]);
-    expect(byName.isHoverRight2[0]).toBeGreaterThanOrEqual(byName.isHoverRight[0]);
-    expect(byName.isHoverRight2[1]).toBeLessThanOrEqual(byName.isHoverRight[1]);
+  });
+
+  it("the extra inputs are present in the file and deliberately never driven", () => {
+    /* The file really does carry five inputs, and our own measurement showed the
+       "2" variants escalate the plain leans (pixel delta vs idle: 152/172 at the
+       far left, 176/167 at the far right). That was correct ABOUT THE FILE.
+       Rive's own site simply never exercises them, and matching the original
+       beats out-engineering it — so they are listed, checked to still exist by
+       `check:assets`, and left alone. */
+    expect(GET_STARTED_CAT.undrivenInputs).toEqual([
+      "isHovercenter",
+      "isHoverLeft2",
+      "isHoverRight2",
+    ]);
+    const driven = GET_STARTED_CAT.declaredInputs.map((h) => h.name);
+    for (const name of GET_STARTED_CAT.undrivenInputs ?? []) {
+      expect(driven).not.toContain(name);
+    }
   });
 
   it("isHovercenter keeps the file's lowercase spelling", () => {
-    /* The file's own internal name — the Recticle precedent. Correcting it to
-       isHoverCenter would silently stop the centre zone from firing. */
-    const names = GET_STARTED_CAT.declaredInputs.map((h) => h.name);
-    expect(names).toContain("isHovercenter");
-    expect(names).not.toContain("isHoverCenter");
+    /* The file's own internal name — the Recticle precedent. It is undriven
+       now, but the spelling still has to match or `check:assets` cannot verify
+       the input is still there. */
+    expect(GET_STARTED_CAT.undrivenInputs).toContain("isHovercenter");
+    expect(GET_STARTED_CAT.undrivenInputs).not.toContain("isHoverCenter");
   });
 
   it("the rocket drives isHover and nothing else", () => {
@@ -417,6 +507,7 @@ describe("hover inputs match the probe", () => {
     expect(GET_STARTED_ROCKET.declaredInputs.map((h) => h.name)).toEqual([
       "isHover",
     ]);
+    expect(GET_STARTED_ROCKET.undrivenInputs ?? []).toEqual([]);
   });
 
   it("the R logo is autonomous — no inputs to drive", () => {
@@ -425,16 +516,15 @@ describe("hover inputs match the probe", () => {
     expect(R_LOGO_SHUFFLE.pointer).toBe("none");
   });
 
-  it("pointer movement engages the right zones and clears on leave", () => {
-    const inputs = GET_STARTED_CAT.declaredInputs.map((h) => ({
-      name: h.name,
-      value: false,
-    }));
+  it("crossing halves swaps them, and leaving clears both", () => {
+    const inputs = [
+      ...GET_STARTED_CAT.declaredInputs.map((h) => h.name),
+      ...(GET_STARTED_CAT.undrivenInputs ?? []),
+    ].map((name) => ({ name, value: false }));
     fake.state.inputs.set("Motion", inputs);
     const el = mount(<RiveButton asset={GET_STARTED_CAT} label="Get started" />);
     const button = el.querySelector(".rive-button") as HTMLElement;
-    button.getBoundingClientRect = () =>
-      ({ left: 0, width: 100 }) as DOMRect;
+    button.getBoundingClientRect = () => ({ left: 0, width: 100 }) as DOMRect;
 
     const move = (clientX: number) =>
       act(() => {
@@ -442,25 +532,69 @@ describe("hover inputs match the probe", () => {
           new MouseEvent("pointermove", { bubbles: true, clientX }),
         );
       });
+    const on = () => inputs.filter((i) => i.value).map((i) => i.name);
 
-    move(50);
-    expect(inputs.filter((i) => i.value).map((i) => i.name)).toEqual([
-      "isHovercenter",
-    ]);
+    move(25);
+    expect(on()).toEqual(["isHoverLeft"]);
 
-    /* Far right engages BOTH the plain and the extreme lean — the nested model. */
-    move(95);
-    expect(inputs.filter((i) => i.value).map((i) => i.name).sort()).toEqual([
-      "isHoverRight",
-      "isHoverRight2",
-    ]);
+    move(75);
+    expect(on()).toEqual(["isHoverRight"]);
 
-    /* Leaving must clear every zone, or the cat stays frozen mid-lean after the
-       cursor has gone. React delegates onPointerLeave from `pointerout`. */
+    move(20);
+    expect(on()).toEqual(["isHoverLeft"]);
+
+    /* Leaving must clear both, or the cat stays frozen mid-lean after the cursor
+       has gone. React delegates onPointerLeave from `pointerout`. */
     act(() => {
       button.dispatchEvent(new MouseEvent("pointerout", { bubbles: true }));
     });
-    expect(inputs.filter((i) => i.value)).toEqual([]);
+    expect(on()).toEqual([]);
+  });
+
+  it("the undriven inputs are never written, at any pointer position", () => {
+    /* The purity claim in data form: sweep the whole button and assert nothing
+       outside `declaredInputs` was ever touched. */
+    const inputs = [
+      ...GET_STARTED_CAT.declaredInputs.map((h) => h.name),
+      ...(GET_STARTED_CAT.undrivenInputs ?? []),
+    ].map((name) => ({ name, value: false }));
+    fake.state.inputs.set("Motion", inputs);
+    const el = mount(<RiveButton asset={GET_STARTED_CAT} label="Get started" />);
+    const button = el.querySelector(".rive-button") as HTMLElement;
+    button.getBoundingClientRect = () => ({ left: 0, width: 100 }) as DOMRect;
+
+    const touched = new Set<string>();
+    for (let x = 0; x <= 100; x += 5) {
+      act(() => {
+        button.dispatchEvent(
+          new MouseEvent("pointermove", { bubbles: true, clientX: x }),
+        );
+      });
+      for (const i of inputs) if (i.value) touched.add(i.name);
+    }
+    expect([...touched].sort()).toEqual(["isHoverLeft", "isHoverRight"]);
+  });
+
+  it("a single-input file switches on entering the button, not on movement", () => {
+    /* The rocket has one input covering the whole button, so position is
+       meaningless and pointermove would be per-frame work on the heaviest canvas
+       on the page. It uses enter/leave instead. */
+    const inputs = [{ name: "isHover", value: false }];
+    fake.state.inputs.set("Motion", inputs);
+    const el = mount(
+      <RiveButton asset={GET_STARTED_ROCKET} label="Get started" />,
+    );
+    const button = el.querySelector(".rive-button") as HTMLElement;
+
+    act(() => {
+      button.dispatchEvent(new MouseEvent("pointerover", { bubbles: true }));
+    });
+    expect(inputs[0].value).toBe(true);
+
+    act(() => {
+      button.dispatchEvent(new MouseEvent("pointerout", { bubbles: true }));
+    });
+    expect(inputs[0].value).toBe(false);
   });
 });
 
@@ -516,10 +650,33 @@ describe("accessibility", () => {
     ).toBe("true");
   });
 
-  it("the wordmark is letterspaced in CSS, not with literal spaces", () => {
-    /* "R I V E" in the markup would be announced letter by letter. */
+  it("the wordmark is the logotype, sharing FooterMark's letterforms", () => {
+    /* Was an amber text eyebrow. It is now the mark itself, drawn from the same
+       constant FooterMark uses — so the hero and the footer cannot disagree
+       about the letterforms, and no new asset entered the repo. */
     const ssr = renderToString(<Hero />);
-    expect(ssr).toContain(">RIVE<");
+    expect(ssr).toContain(RIVE_WORDMARK_VIEWBOX);
+    expect(ssr).toContain(RIVE_WORDMARK_PATH.slice(0, 40));
+    /* The old treatments, both gone: literal spaced letters would be announced
+       one at a time, and the amber text eyebrow is what the mark replaced. */
     expect(ssr.includes("R I V E")).toBe(false);
+    expect(ssr.includes(">RIVE<")).toBe(false);
+  });
+
+  it("the wordmark takes its colour from the token, not the path", () => {
+    /* `fill="currentColor"` is what lets Hero.css paint it --text-primary while
+       FooterMark strokes the same geometry differently. A hardcoded fill here
+       would break one of the two. */
+    const ssr = renderToString(<Hero />);
+    expect(ssr).toContain('fill="currentColor"');
+  });
+
+  it("the wordmark is decorative, so the hero stays aria-label-free", () => {
+    /* The nav already exposes "RIVE" as the home link and the H1 carries the
+       proposition; labelling the mark would announce the brand twice. Hiding it
+       is also what keeps `aria-label` out of the section entirely — one on a CTA
+       would replace the name computed from the button's own text. */
+    const ssr = renderToString(<Hero />);
+    expect(ssr).toContain('class="hero__wordmark" aria-hidden="true"');
   });
 });

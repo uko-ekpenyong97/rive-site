@@ -326,3 +326,141 @@ keyframe written for it, is deleted. A test asserts the indices are exactly
   DOM-first means they wait on nothing. Self-hosting it (`RuntimeLoader` supports
   a custom URL) would remove a third-party CDN from the path and is logged as a
   follow-up.
+
+---
+
+### Realigned to rive.app's measured architecture (2026-07-31, second pass)
+
+The first pass built a pointer system that was more elaborate than the thing it
+was copying. This replaces it with the original's actual mechanism, measured off
+the live site's DOM and its running Rive instance.
+
+- **The canvas is display-only. There is no canvas-driven pointer mode.** The
+  `"listeners"` model, the `listenersInert` escape hatch, and the `check:assets`
+  rule that policed it are all deleted. Every canvas is `pointer-events: none`
+  with no override anywhere, so the BUTTON is provably the entire hitbox.
+  Verified in the browser: `elementFromPoint` 20px above and 20px below the
+  rocket button returns `section.hero`, not the canvas; all three canvases report
+  computed `pointer-events: none` and carry zero React handlers; and exactly two
+  elements inside `.hero`/`.nav` own pointer handlers — both `.rive-button`.
+  - Cost of the old mode, for the record: a 500×500 transparent canvas that
+    accepts pointers makes the hero copy beneath it unselectable, and needed a
+    `z-index` lift on the neighbouring CTA so it stayed clickable. That lift is
+    gone too, because it now guards nothing.
+
+- **The cat is two halves, not five nested zones.** Observed on the live site's
+  running instance: the button carries `LeftHit` (60px) and `RightHit` (59px) —
+  a plain midpoint split of a 119px button. `isHoverLeft` / `isHoverRight` only.
+  - **The nested-zone finding from the first pass was correct and is kept.** The
+    file really does escalate `isHoverLeft2` on top of `isHoverLeft` (pixel delta
+    vs idle: 152/172 far-left, 176/167 far-right). That is a fact about the
+    ARTBOARD. Rive's own site simply never exercises those inputs, and matching
+    the original beats out-engineering it.
+  - `isHovercenter`, `isHoverLeft2`, `isHoverRight2` move to a new
+    **`undrivenInputs`** field: verified by `check:assets` to still exist in the
+    committed bytes, never written by us. The distinction is the point — "we
+    checked and chose not to" is a different claim from "we did not know". Both
+    new guards were negative-tested: a listed input the file lacks fails, and an
+    input listed as both driven and undriven fails.
+
+- **Layout is replica geometry, in explicit px, and labelled as such.** GET
+  STARTED 152×47, DOWNLOADS 146×45, gap 6px, nav CTA 119×34 — each measured off
+  rive.app at 1456px and commented with that provenance. These sit outside the
+  token rule deliberately: they are numbers copied from the original, not
+  design-system values, and rounding them to the nearest `--space-*` would lose
+  the thing being reproduced.
+
+- **Anchors are now derived from measured offsets rather than eyeballed.** Rocket
+  `anchorY` 0.78 → **0.703**, which puts canvas top at button top − 328px (the
+  button in the canvas's 328–375 band, ~125px of canvas below it). Cat
+  0.5/0.2 → **0.5037/0.1867**, landing canvas left/top at exactly −76/−11 against
+  the 119×34 button. All three offsets are pinned in the unit suite as arithmetic,
+  so a nudged anchor or a resized button fails there before a browser sees it.
+
+- **The wordmark is the logotype, and it needed no new asset.** The brief called
+  for `src/assets/rive-wordmark.svg`; that file does not exist and never has on
+  any ref. `src/components/riveWordmark.ts` already held exactly it — same
+  `0 0 275 50` viewBox, single path, extracted from rive.app on 2026-07-29 for
+  `FooterMark`. **Hero and footer now share one letterform source**, and the amber
+  text eyebrow it replaced is gone.
+  - Rendered **`aria-hidden`**, deliberately. The nav already exposes "RIVE" as
+    the home link and the H1 carries the proposition, so labelling the mark would
+    announce the brand twice. It also keeps `aria-label` out of the section
+    entirely — which the CTAs depend on, since one there would replace the name
+    computed from the button's own text (WCAG 2.5.3). A first attempt gave the
+    SVG `role="img" aria-label="Rive"` and the existing accessibility guard
+    caught it, which is the guard doing its job.
+
+- **Single-input files switch on enter/leave, not pointermove.** The rocket's one
+  input spans the whole button, so position is meaningless and per-move work on
+  the heaviest canvas on the page bought nothing. Halves still use
+  `pointermove` because they need the position.
+
+---
+
+### CTA row polish + the exit-animation investigation (2026-07-31, third pass)
+
+- **The rocket paints over DOWNLOADS**, matching the live site (rocket subtree
+  z-index 1, DOWNLOADS 0). Ours had inherited the opposite purely from DOM order,
+  because both buttons were `z-index: auto`. Safe only because the canvas is
+  `pointer-events: none` — `elementFromPoint` at DOWNLOADS' centre still resolves
+  to the DOWNLOADS link, pinned in both the unit suite and the browser pass.
+- **DOWNLOADS dims to `--cta-dim-opacity` (0.4, 200ms) while GET STARTED is
+  hovered.** Driven from the primary's own enter/leave via `onHoverChange`, not
+  from `:hover` on the secondary — the pointer never has to touch DOWNLOADS.
+  Deliberately NOT gated on the canvas being live, so it still works while the
+  2.41 MB wasm is in flight; same DOM-first reasoning as the label handoff.
+  Verified 1 → 0.4 → 1 in a browser with the pointer only ever on the primary.
+- **Row gap 6px → `--space-3` (12px).** The 6px was measured off rive.app and read
+  too tight once the buttons took their full size, so this is our call rather than
+  a copied number — hence a token. `--space-3` and `--space-4` tie for "nearest to
+  14px"; 12px is the smaller step.
+- **Status line retired from the hero, slot kept.** `status` has no default and
+  renders nothing when absent — no empty `<p>`, no reserved line — and keeps its
+  `--enter-index: 6` so restoring it needs no cascade surgery.
+
+#### The paw-search exit animation: measured, not fixed
+
+Investigated as a suspected missing interaction. It is not missing, and nothing
+was suppressing it — `RiveButton` contains no `pause`, `stop`, rAF gating or
+advance control of any kind; the only playback line in the file is
+`autoplay: true`.
+
+- **The file has the exit.** Standalone probe, own Rive instance:
+  `isHoverLeft` true → false plays a ~450ms animation peaking at t=240ms
+  (Δ+855 lit px), matching the artboard's `Left_end` timeline (0.45s) almost
+  exactly. The rocket's `isHover` exit runs ~590–700ms.
+- **Our app plays it.** In-app probe at rAF resolution: last differing frame
+  t=436ms, same peak signature. No code change was needed.
+- **No keep-alive was added, deliberately.** The suggestion to keep the runtime
+  advancing whenever on-screen assumed an animated idle. The rocket has one; the
+  cat's idle measures **sd 0.0** — a static pose. Spinning rAF to redraw an
+  unchanging frame would be work for nothing.
+- **But the composite does NOT show it below the nav bar.** Screencast diffing of
+  the band under the nav (269×81 at y82–163) against a settled reference: canvas
+  region changes strongly during the exit (meanAbsDiff 7.5–8.9 vs a 0.000 noise
+  floor) while the band moves 0.05–0.15 — imperceptible, and the band PNGs at
+  idle and mid-exit are indistinguishable by eye.
+  - **Cause is GEOMETRY, not clipping and not stacking.** Every ancestor of the
+    canvas is `overflow: visible` with no `clip-path` and no `contain`; the nav is
+    `z-index: 2` inside `.home` `z-index: 1` while `.hero` is `position: static /
+    z-index: auto` and cannot occlude it. The cat art simply occupies the top of
+    the 269×150 artboard, around and left of the button; the lower ~81px of our
+    canvas placement is empty artboard.
+  - **Not fixed, on purpose.** The anchors that put it there (`canvasT − btnT =
+    −11`, `canvasL − btnL = −76`) are the measured rive.app offsets and are pinned
+    as arithmetic in the suite. Moving the art below our 82px nav bar would break
+    that reproduction. Whether the paws reach below the bar on rive.app is a
+    question about THEIR nav height versus our 82px, and wants their measurement
+    before anything moves.
+- **A false negative that nearly shipped as a finding.** The first probe reported
+  a clean `0/33 post-clear frames differ from idle`. Every frame was zero opaque
+  pixels: `drawImage` on a standalone WebGL2 canvas reads back blank. The
+  countermeasure — abort on a blank baseline, capture via the compositor — is now
+  in `scripts/check-exit-animation.mjs` and documented in CLAUDE.md beside the
+  AVIF trap. A second instrument then had to be discarded too, when a
+  threshold-based band metric turned out to be measuring `DotField` dots
+  responding to the cursor rather than the artwork.
+- **`npm run check:exit`** is the committed harness. The unit suite pins the
+  cause (inputs go true → false on leave); only a browser can pin the effect, and
+  this repo's history argues against leaving that untracked.
