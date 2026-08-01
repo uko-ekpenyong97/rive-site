@@ -1,11 +1,6 @@
 # NEXT UP
 
-- **Self-host rive.wasm** — hero CTAs depend on unpkg at runtime;
-  self-host before the site is shown to anyone at Rive. ~2.4 MB into
-  public/, wasm-URL override on @rive-app/webgl2@2.39.1, extend
-  check:assets to pin bytes against the package version (re-export
-  needed on every runtime upgrade — that's config-vs-artifact drift,
-  check:assets is the natural guard). LIVE RISK: now on main.
+- _(empty — self-hosting the Rive wasm landed 2026-08-01; see Done)_
 
 # Follow-ups
 
@@ -56,3 +51,19 @@
   branch:main for fast-forwards), run the full gate in it, push
   HEAD:main, remove the worktree. Never touch the stale
   ~/Downloads checkout.
+
+# Done
+
+- **Self-host rive.wasm** (2026-08-01) — the runtime no longer fetches
+  from unpkg. Both binaries are committed under public/rive/runtime/
+  under versioned names and pointed at by src/riveRuntime.ts.
+  Two binaries, not one, and this is the part to not "simplify": the
+  jsdelivr URL was never a CDN mirror — rive_fallback.wasm is compiled
+  for older architectures and is used when the primary fails to fetch
+  OR to compile, so dropping it would silently strip support for those
+  CPUs. Guarded by a three-way pin in check:assets (committed bytes ==
+  node_modules bytes, filename version == installed version, source
+  references both) and by check:offline, which blocks both CDNs and
+  asserts every surface still mounts and paints, plus zero CDN requests
+  on a normal load. Re-export step on every runtime upgrade — noted in
+  CLAUDE.md's asset section.

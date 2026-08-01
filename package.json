@@ -23,7 +23,8 @@
     "fetch:community": "node scripts/fetch-community.mjs",
     "check:exit": "node scripts/check-exit-animation.mjs",
     "logos:logotype": "node scripts/logotype-variants.mjs",
-    "check:rails": "node scripts/check-rails-align.mjs"
+    "check:rails": "node scripts/check-rails-align.mjs",
+    "check:offline": "node scripts/check-offline-wasm.mjs"
   },
   "dependencies": {
     "@rive-app/react-webgl2": "^4.30.0",

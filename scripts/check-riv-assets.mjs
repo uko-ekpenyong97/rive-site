@@ -24,7 +24,8 @@
  * Usage: node scripts/check-riv-assets.mjs
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname, resolve, relative, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { probe, loadWasmLocally } from "./probe-riv.mjs";
@@ -409,10 +410,189 @@ for (const entry of readdirSync(resolve(ROOT, SITE_DIR))) {
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * THE SELF-HOSTED RUNTIME WASM.
+ *
+ * The site no longer fetches its ~2.4 MB runtime from unpkg; it serves its own
+ * copies out of public/rive/runtime/. That turns a CDN dependency into an
+ * artifact, and artifacts drift — so this is the same config-vs-artifact guard
+ * the .riv files get above, applied to the wasm.
+ *
+ * THE DRIFT THIS CATCHES: `npm i @rive-app/react-webgl2@latest` upgrades the JS
+ * runtime and leaves the committed wasm untouched. The wasm and the JS that
+ * consumes it are ONE unit — a new runtime against old bytes is undefined
+ * behaviour, and nothing else in the build can see it. `tsc` does not read a
+ * .wasm, `vite build` only copies it, and the Vitest suite mocks the runtime
+ * entirely, so a mock agrees with whatever version the source claims.
+ *
+ * Three assertions, because each catches a different half of the same mistake:
+ *   1. committed bytes === node_modules bytes, for BOTH binaries
+ *   2. the version in each filename === the installed package version
+ *   3. src/riveRuntime.ts points at exactly those two committed files
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const RUNTIME_SRC = "src/riveRuntime.ts";
+const RUNTIME_DIR = "public/rive/runtime";
+const PKG = "@rive-app/webgl2";
+
+const sha256 = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
+
+/**
+ * Source with comments removed, for checks that must read CODE and not PROSE.
+ *
+ * riveRuntime.ts documents the exact unpkg URL the site used to fetch, because
+ * a measured before-state is worth keeping. A naive `includes("unpkg.com")`
+ * scan cannot tell that apart from a live CDN path and fails on the comment —
+ * it did, first run. Stripping is a small state machine rather than a regex
+ * because the strings being protected are themselves full of slashes.
+ */
+function stripComments(src) {
+  let out = "";
+  let i = 0;
+  let quote = null; // ' " or `
+  while (i < src.length) {
+    const c = src[i];
+    const next = src[i + 1];
+    if (quote) {
+      if (c === "\\") { out += c + (next ?? ""); i += 2; continue; }
+      if (c === quote) quote = null;
+      out += c; i++; continue;
+    }
+    if (c === '"' || c === "'" || c === "`") { quote = c; out += c; i++; continue; }
+    if (c === "/" && next === "*") {
+      const end = src.indexOf("*/", i + 2);
+      i = end === -1 ? src.length : end + 2;
+      out += " ";
+      continue;
+    }
+    if (c === "/" && next === "/") {
+      const end = src.indexOf("\n", i);
+      i = end === -1 ? src.length : end;
+      out += " ";
+      continue;
+    }
+    out += c; i++;
+  }
+  return out;
+}
+
+{
+  const installed = JSON.parse(
+    readFileSync(resolve(ROOT, "node_modules", PKG, "package.json"), "utf8"),
+  ).version;
+
+  const src = readFileSync(resolve(ROOT, RUNTIME_SRC), "utf8");
+  const declared = src.match(/RIVE_WASM_VERSION\s*=\s*"([^"]+)"/)?.[1];
+
+  if (!declared) {
+    fail(`${RUNTIME_SRC}: could not parse RIVE_WASM_VERSION — the pin cannot be checked`);
+  } else if (declared !== installed) {
+    fail(
+      `${RUNTIME_SRC}: declares ${PKG}@${declared} but node_modules has ${installed} — ` +
+        `re-copy both wasm files under the new version's names and update the constants`,
+    );
+  }
+
+  /* Both binaries, and the distinction matters: rive_fallback.wasm is compiled
+     for older architectures, NOT a mirror of the primary. Pinning only the
+     primary would let the fallback rot into a version mismatch that surfaces
+     only on the machines least able to report it. */
+  const pairs = [
+    { label: "primary", node: "rive.wasm", committed: `rive-${installed}.wasm` },
+    {
+      label: "older-architecture fallback",
+      node: "rive_fallback.wasm",
+      committed: `rive_fallback-${installed}.wasm`,
+    },
+  ];
+
+  for (const { label, node, committed } of pairs) {
+    const nodePath = resolve(ROOT, "node_modules", PKG, node);
+    const outPath = resolve(ROOT, RUNTIME_DIR, committed);
+
+    if (!existsSync(nodePath)) {
+      fail(`node_modules/${PKG}/${node} is missing — cannot verify the ${label} wasm`);
+      continue;
+    }
+    if (!existsSync(outPath)) {
+      fail(
+        `${RUNTIME_DIR}/${committed} is missing — the ${label} wasm was never exported ` +
+          `for ${PKG}@${installed} (copy it from node_modules/${PKG}/${node})`,
+      );
+      continue;
+    }
+
+    const want = sha256(nodePath);
+    const got = sha256(outPath);
+    if (want !== got) {
+      fail(
+        `${RUNTIME_DIR}/${committed}: sha256 ${got.slice(0, 16)}… does not match ` +
+          `node_modules/${PKG}/${node} (${want.slice(0, 16)}…) — the committed ${label} ` +
+          `wasm is not the one this runtime version ships`,
+      );
+      continue;
+    }
+
+    /* The source must actually reference the file we just verified. Bytes that
+       match but are never requested are not a fix. */
+    if (!src.includes(committed.replace(`-${installed}.wasm`, ""))) {
+      fail(`${RUNTIME_SRC}: does not reference ${committed} — the ${label} wasm is orphaned`);
+      continue;
+    }
+
+    console.log(
+      `  ok  ${committed}  →  ${label}  sha256 ${got.slice(0, 12)}…  ` +
+        `${readFileSync(outPath).length.toLocaleString()} bytes`,
+    );
+  }
+
+  /* No stale exports: an old version's wasm left behind would still be served,
+     and "which one is live" would be a question rather than a fact. */
+  const expected = new Set(pairs.map((p) => p.committed));
+  for (const entry of readdirSync(resolve(ROOT, RUNTIME_DIR))) {
+    if (!entry.endsWith(".wasm")) continue;
+    if (!expected.has(entry)) {
+      fail(
+        `${RUNTIME_DIR}/${entry}: not the export for ${PKG}@${installed} — ` +
+          `a stale runtime wasm, delete it`,
+      );
+    }
+  }
+
+  /* The whole point of the change: no CDN literal may survive in the CODE that
+     configures the runtime. Comments are stripped first — the file deliberately
+     documents the unpkg URL the site used to fetch, and that record should not
+     be what trips the guard. */
+  const code = stripComments(src);
+  for (const host of ["unpkg.com", "cdn.jsdelivr.net"]) {
+    if (code.includes(host)) {
+      fail(`${RUNTIME_SRC}: still contains a live ${host} URL — the CDN path is not retired`);
+    }
+  }
+
+  /* The fallback must point at OUR older-architecture build. `null` disables it
+     outright, which silently drops support for the CPUs it exists to serve —
+     and would look like a tidy simplification in review. */
+  if (/setWasmFallbackUrl\s*\(\s*null\s*\)/.test(code)) {
+    fail(
+      `${RUNTIME_SRC}: calls setWasmFallbackUrl(null), disabling the older-architecture ` +
+        `wasm entirely — point it at the committed fallback instead`,
+    );
+  }
+  for (const setter of ["setWasmUrl", "setWasmFallbackUrl"]) {
+    if (!code.includes(setter)) {
+      fail(`${RUNTIME_SRC}: never calls ${setter} — the runtime would fall back to the CDN`);
+    }
+  }
+}
+
 if (problems.length) {
   console.error(`\n✗ ${problems.length} problem(s):\n`);
   for (const p of problems) console.error(`  - ${p}`);
   process.exit(1);
 }
 
-console.log(`\n✓ all ${configs.length} config pairs match the committed bytes`);
+console.log(
+  `\n✓ all ${configs.length} config pairs match the committed bytes` +
+    `\n✓ runtime wasm pinned to ${PKG}@${JSON.parse(readFileSync(resolve(ROOT, "node_modules", PKG, "package.json"), "utf8")).version} (primary + older-architecture fallback)`,
+);
