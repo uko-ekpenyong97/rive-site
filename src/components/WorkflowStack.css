@@ -16,7 +16,7 @@
    * `min-height`, not `height`: if a block ever does outgrow the box the card
    * grows rather than clipping. Which cards grow, if any, is pinned by
    * check:stack at every width. */
-  --workflow-card-height: 240px;
+  --workflow-card-height: 252px;
   /* One token step up from --space-8, so the copy sits further inside the card
    * (measured inset 33px → 49px). Both sides, not just the left: only the left
    * is visible against left-aligned text, but a card with lopsided horizontal
@@ -49,18 +49,41 @@
    * maintained by hand — the band IS the peek strip, so any stagger smaller
    * than the band clips the category label mid-glyph. Sized from the label:
    *
-   *     21px eyebrow line-height + 2 x 11.5px breathing = 44px
+   *     21px eyebrow line-height + 2 x 16.5px breathing = 54px
    *
-   * (21px, not the ~16px a 14px font suggests — Tomorrow's line box is taller,
-   * which is why 36px would have left only 7.5px of clearance.)
+   * (21px, not the ~16px a 14px font suggests — Tomorrow's line box is taller.)
+   * Was 44px with 11.5px of breathing; the labels read too close to the cards'
+   * top borders. The label stays centred in the band, so the extra air is
+   * symmetric without any padding value to keep in sync.
    *
-   * It does NOT feed dwell or scrub, so changing it re-paces nothing. */
-  --stack-stagger: 44px;
+   * It does NOT feed dwell or scrub, so changing it re-paces nothing. It DOES
+   * feed the canvas size and the card's content box — raising it is why the
+   * card height moved to 252. */
+  --stack-stagger: 54px;
 
   /* The canvas matches the FINAL composition on the left: four peek strips
-   * plus the active card. Derived, so dialling either input keeps them level. */
+   * plus the active card. Derived, so dialling either input keeps them level.
+   * At 54 + 252 that is 468px. */
   --workflow-canvas-size: calc(
     4 * var(--stack-stagger) + var(--workflow-card-height)
+  );
+
+  /* WHERE THE WHOLE THING PINS, and it is centred rather than tucked under the
+   * nav. The beat-5 composition is exactly --workflow-canvas-size tall, so
+   * centring it is (viewport - that) / 2:
+   *
+   *     800px tall → 166px    900px → 216px    1000px → 266px
+   *
+   * The 96px floor keeps it clear of the nav on short viewports; it engages
+   * below 660px of height (468 + 2 x 96). Both columns pin from this one
+   * variable, so the canvas and the cards cannot drift apart — the alignment is
+   * structural rather than maintained.
+   *
+   * Cadence is untouched: this moves WHERE a card sticks, not the scroll
+   * distance between one sticking and the next. */
+  --stack-pin-top: max(
+    96px,
+    calc((100vh - var(--workflow-canvas-size)) / 2)
   );
 
   --stack-dwell: 660px;
@@ -88,21 +111,6 @@
   position: relative;
   min-width: 0;
 
-  /* A TAIL, so the last beat has dwell like every other one.
-   *
-   * Without it the column ends at card 5's own bottom, which has two effects
-   * that look unrelated and are the same bug: card 5 gets a zero-length sticky
-   * range (it can never pin, it just travels past), and the canvas — whose
-   * sticky range is this column — hits its limit at the exact instant card 5
-   * arrives and is pushed up out of the viewport while Celebrate is playing.
-   * Measured before this: canvas top −19.9px then −59.9px, i.e. the character
-   * clipped during the beat it exists to land.
-   *
-   * One dwell of tail gives beat 5 the same hold as beats 1-4, lets card 5 pin
-   * like its siblings, and keeps the canvas level with the composition through
-   * the whole of the final beat instead of for one frame of it. Costs one dwell
-   * of scroll — the honest price of the last beat being a beat at all. */
-  padding-bottom: var(--stack-dwell);
 }
 
 /* Later cards start lower in the flow so they scroll up into the pin. */
@@ -110,8 +118,12 @@
   margin-top: var(--stack-travel);
 }
 
-/* The last card's longer approach is the beat-4 progress scrub zone. */
-.workflow-stack__card:last-child {
+/* The last card's longer approach is the beat-4 progress scrub zone.
+   `:last-of-type`, NOT `:last-child`: the tail div is the column's last child
+   now, so `:last-child` silently stopped matching card 5 and it inherited the
+   ordinary travel instead — collapsing the scrub zone from 1140px to 660px with
+   nothing visibly wrong. The cards are the only <article>s here. */
+.workflow-stack__card:last-of-type {
   margin-top: var(--stack-travel-bind);
 }
 
@@ -122,7 +134,7 @@
    * stacking (later cards paint on top), so no z-index is needed.
    */
   position: sticky;
-  top: calc(96px + var(--card-index) * var(--stack-stagger));
+  top: calc(var(--stack-pin-top) + var(--card-index) * var(--stack-stagger));
 
   display: flex;
   flex-direction: column;
@@ -141,6 +153,27 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   box-sizing: border-box;
+}
+
+/* THE TAIL. One dwell of column below the last card, so beat 5 holds as long as
+   every other beat does.
+ *
+ * IT IS AN ELEMENT, NOT PADDING, AND THAT IS THE WHOLE POINT. `position: sticky`
+ * is constrained by its containing block's CONTENT box. `padding-bottom` here —
+ * the previous attempt — grows this column's BORDER box, which extended the
+ * canvas's sticky range (the canvas lives in a sibling grid item sized by the
+ * row) and therefore looked like it worked, while card 5's own range stayed
+ * zero-length: it reached its pin and travelled straight past it, leaving the
+ * active card sliding away under a pinned canvas.
+ *
+ * A margin on the last card does not work either, and for a different reason: a
+ * sticky element's constraint applies to its MARGIN box, so the margin travels
+ * with the card and the range stays zero. Measured, both times.
+ *
+ * Do not "simplify" this back to padding. Full reasoning in
+ * docs/specs/workflow-stack-spec.md §Decision log. */
+.workflow-stack__tail {
+  height: var(--stack-dwell);
 }
 
 /* ------------------------------------------------------------ Card band + copy */
@@ -214,7 +247,7 @@
  * with it as it grows. */
 .workflow-stack__canvas.loop-canvas {
   position: sticky;
-  top: 96px;
+  top: var(--stack-pin-top);
   width: var(--workflow-canvas-size);
   max-width: 100%;
   max-height: calc(100vh - 128px);

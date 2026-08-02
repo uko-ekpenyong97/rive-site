@@ -37,6 +37,15 @@ const args = process.argv.slice(2);
 const urlArg = args.indexOf("--url");
 const URL_ = urlArg >= 0 ? args[urlArg + 1] : "http://localhost:5173/";
 const WIDTHS = [1280, 1440, 1680];
+/* Pin position is derived from viewport HEIGHT now, so height is a real
+   variable in this check rather than a constant of the harness. */
+const HEIGHTS = [800, 1000];
+/** Below this viewport height the canvas max-height cap starts shrinking the
+ *  canvas and the composition match no longer holds. Stated with the number so
+ *  it is a known boundary rather than a surprise: 468 + 2 x 96 = 660 is where
+ *  the 96px floor engages, and 564 (= 468 + 96) is where the pinned canvas
+ *  would first reach the bottom of the viewport. */
+const COMPOSITION_MIN_VH = 564;
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -143,6 +152,7 @@ const GEOM = `(() => {
     })(),
     /* The composition the canvas is supposed to match. */
     compositionH: 4 * px('--stack-stagger') + parseFloat(getComputedStyle(cards[0]).minHeight),
+    canvasPinTop: parseFloat(getComputedStyle(document.querySelector('.workflow-stack__canvas')).top),
   };
 })()`;
 
@@ -227,9 +237,12 @@ try {
   await send("Runtime.enable");
   console.log(`workflow stack choreography → ${URL_}\n`);
 
-  for (const width of WIDTHS) {
+  const combos = [];
+  for (const width of WIDTHS) for (const height of HEIGHTS) combos.push([width, height]);
+
+  for (const [width, height] of combos) {
     await send("Emulation.setDeviceMetricsOverride", {
-      width, height: 900, deviceScaleFactor: 1, mobile: false,
+      width, height, deviceScaleFactor: 1, mobile: false,
     });
     await send("Page.navigate", { url: URL_ });
     await sleep(3000);
@@ -238,11 +251,11 @@ try {
 
     const g = await ev(GEOM);
     if (!g || g.error) {
-      bad(`${width}px — ${g?.error ?? "no geometry"}`);
+      bad(`${width}×${height} — ${g?.error ?? "no geometry"}`);
       continue;
     }
 
-    console.log(`━━ ${width}px ━━`);
+    console.log(`━━ ${width}×${height} ━━`);
     console.log(
       `  card ${g.cardW}×${g.cardH}  padding-left ${g.paddingLeft} / top ${g.paddingTop}  ` +
         `text inset ${g.textInset}px`,
@@ -258,6 +271,28 @@ try {
     /* All five equal — "one variable, not per-card values". */
     if (new Set(g.heights).size !== 1)
       bad(`card heights differ: [${g.heights.join(", ")}] — the height is not one variable`);
+
+    /* ── The pin is centred, and derived at both columns from one variable ─── */
+    const wantPin = Math.max(96, (height - g.canvasSize.h) / 2);
+    console.log(
+      `  pin ${g.pinTops[0]}px  (viewport ${height} − canvas ${g.canvasSize.h}) / 2 = ` +
+        `${((height - g.canvasSize.h) / 2).toFixed(1)}, floor 96 → want ${wantPin.toFixed(1)}`,
+    );
+    if (Math.abs(g.pinTops[0] - wantPin) > 1)
+      bad(`card 1 pins at ${g.pinTops[0]}px, expected ${wantPin.toFixed(1)}px (centred composition)`);
+    if (Math.abs(g.canvasPinTop - g.pinTops[0]) > 0.5)
+      bad(
+        `canvas pins at ${g.canvasPinTop}px but card 1 at ${g.pinTops[0]}px — ` +
+          `the two columns are not sharing --stack-pin-top`,
+      );
+    /* Each card exactly one stagger below the last, from the same origin. */
+    for (let i = 1; i < 5; i++) {
+      const want = g.pinTops[0] + i * g.stagger;
+      if (Math.abs(g.pinTops[i] - want) > 0.5)
+        bad(`card ${i + 1} pins at ${g.pinTops[i]}px, expected ${want}px`);
+    }
+    if (height < COMPOSITION_MIN_VH)
+      console.log(`  (below ${COMPOSITION_MIN_VH}px tall the max-height cap shrinks the canvas — match not expected)`);
 
     /* ── The band IS the peek ────────────────────────────────────────────────
        If these ever diverge the label is sliced by the covering card, and it
@@ -342,6 +377,7 @@ try {
     let active = 0;
     const cropDetail = [];
     const align = { top: 0, bottom: 0, samples: 0, at: null };
+    const hold5 = { samples: 0, canvasPinned: 0, from: null, to: null };
     const peeks = [];
     let gapWorst = 0;
     let canvasUnpinned = 0;
@@ -383,15 +419,29 @@ try {
       }
 
       if (st.canvasTop === null || st.canvasH < 20) canvasUnpinned++;
-      /* Only while the section is ACTIVE. During entry and exit the canvas is
-         legitimately part-way off screen like any other element — counting that
-         as a crop measured normal scrolling and called it a defect. */
-      if (st.pinned.some(Boolean)) {
+      /* CROP IS ONLY MEANINGFUL WHILE THE CANVAS IS PINNED.
+         Entry, exit and the moment its sticky range ends all move it partly off
+         screen exactly like any other element, and counting those measured
+         normal scrolling as a defect. The canvas is 468px against a 252px card,
+         so its range ends ~216px before the cards' do — it is legitimately
+         travelling while cards 1-4 are still pinned, at the very end of the
+         section, after beat 5 is over. What has to be true is the invariant
+         that matters: while it is pinned and driving a beat, it is whole. */
+      const canvasAtPin = st.canvasTop !== null && Math.abs(st.canvasTop - g.pinTops[0]) < 1.5;
+      if (canvasAtPin) {
         active++;
+        /* BEAT-5 HOLD: card 5 on its pin AND the canvas on its own, together.
+           Counted in scroll distance, so "it held" is a number. */
+        if (st.pinned[4]) {
+          hold5.samples++;
+          if (hold5.from === null) hold5.from = st.y;
+          hold5.to = st.y;
+          if (Math.abs(st.canvasTop - g.pinTops[0]) < 1.5) hold5.canvasPinned++;
+        }
         if (st.canvasCropped) {
           cropped++;
           if (cropDetail.length < 4)
-            cropDetail.push(`y=${st.y} canvas ${st.canvasTop}→${st.canvasBottom} (viewport 0→${900})`);
+            cropDetail.push(`y=${st.y} canvas ${st.canvasTop}→${st.canvasBottom} (viewport 0→${height})`);
         }
       }
 
@@ -420,9 +470,11 @@ try {
     /* Structural, and true before this change as well as after: only the first
        four cards actually STICK. Stated so a future reader does not read it as
        new breakage — and so it fails loudly if the first four ever stop. */
-    console.log(`  actually stuck at their pin: cards [${everStuck.map((v,i)=>v?i+1:null).filter(Boolean).join(", ")}]` +
-      ` — card 5's sticky range is zero-length by construction (last child), unchanged by this work`);
-    for (let i = 0; i < 4; i++)
+    console.log(`  actually stuck at their pin: cards [${everStuck.map((v,i)=>v?i+1:null).filter(Boolean).join(", ")}]`);
+    /* ALL FIVE, card 5 included. It could not stick until the tail became a
+       sibling element rather than padding on the column — sticky is bounded by
+       the containing block's content box, which padding sits outside of. */
+    for (let i = 0; i < 5; i++)
       if (!everStuck[i]) bad(`card ${i + 1} never stuck at its pin — the stack is not forming`);
     /* WHAT THE SCROLL DISTANCE BETWEEN TWO REACHES ACTUALLY IS.
        Each card pins --stack-stagger LOWER than the one before, so card N+1
@@ -454,8 +506,8 @@ try {
     if (canvasUnpinned) bad(`the Loop canvas lost its box on ${canvasUnpinned}/${samples} samples`);
     else console.log(`  Loop canvas held its box across all ${samples} samples`);
 
-    if (cropped) bad(`the Loop canvas was cropped by the viewport on ${cropped}/${active} active samples: ${cropDetail.join(" | ")}`);
-    else console.log(`  Loop canvas uncropped across all ${active} samples where the section is active`);
+    if (cropped) bad(`the Loop canvas was cropped while pinned on ${cropped}/${active} samples: ${cropDetail.join(" | ")}`);
+    else console.log(`  Loop canvas whole on all ${active} samples where it is pinned`);
 
     /* THE FINAL BEAT IS A MOMENT, AND A 40px GRID CANNOT LAND ON IT.
        Card 5 arriving at its pin is a single scroll position; sampled coarsely,
@@ -479,6 +531,24 @@ try {
         }
         align.samples++;
       }
+    }
+
+    /* The final card must hold for its whole beat, with the canvas alongside —
+       that is the difference between a beat and a moment. */
+    if (!hold5.samples) bad(`card 5 never held at its pin — beat 5 has no dwell`);
+    else {
+      const held = hold5.to - hold5.from;
+      console.log(
+        `  beat-5 hold: card 5 pinned from scrollY ${hold5.from} to ${hold5.to} (${held}px, ` +
+          `${hold5.samples} samples) · canvas pinned alongside on ${hold5.canvasPinned}/${hold5.samples}`,
+      );
+      if (held < g.dwell - STEP * 2)
+        bad(`card 5 held only ${held}px, expected ~${g.dwell}px (one dwell of tail)`);
+      if (hold5.canvasPinned !== hold5.samples)
+        bad(
+          `the canvas left its pin during beat 5 on ${hold5.samples - hold5.canvasPinned}/${hold5.samples} ` +
+            `samples — card 5 and the canvas must hold together`,
+        );
     }
 
     if (!align.samples) bad(`never observed the final beat — cannot check canvas/stack alignment`);

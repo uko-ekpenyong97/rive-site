@@ -178,6 +178,17 @@ export function WorkflowStack() {
               </div>
             </article>
           ))}
+
+          {/* THE TAIL, and it has to be an element rather than padding.
+              `position: sticky` is constrained by its containing block's
+              CONTENT box, so padding-bottom on this column — which is what this
+              replaced — grew the column's border box (extending the canvas's
+              sticky range, which is why it looked like it worked) while leaving
+              card 5 with a zero-length range: it reached its pin and travelled
+              straight on past. A sibling occupies the content box, so the last
+              card finally gets a real range and holds through its own beat.
+              See docs/specs/workflow-stack-spec.md §Decision log. */}
+          <div className="workflow-stack__tail" aria-hidden="true" />
         </div>
 
         <div className="workflow-stack__canvas-wrap">
