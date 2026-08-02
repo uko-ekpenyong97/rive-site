@@ -34,9 +34,38 @@
   width: auto;
 }
 
+/* RAG, not size. The owner-approved break is four near-equal lines:
+     INTERACTIVE / GRAPHICS THAT / SHIP STRAIGHT / TO PRODUCTION
+   against the wide-second-line rag 16ch produced (…GRAPHICS THAT SHIP…).
+
+   TWO MECHANISMS, ON PURPOSE, and the max-width is doing the load-bearing half.
+   Measured with the real face at 56px (1ch = 37.3px, identical at 1280/1440/1680
+   since 5vw clamps out) — `npm run check:rag` re-measures and pins it:
+
+     greedy line breaking gives this rag from 11.9ch to 13.4ch
+       (13.6ch pulls TO up into "SHIP STRAIGHT TO"; 11.8ch spills to five lines)
+     + text-wrap: balance widens that to 11.9ch – 16ch and beyond
+
+   12.6ch is the centre of the GREEDY window, not the balance one. Balance alone
+   at the old 16ch also produces this rag — but 16ch is outside the greedy
+   window, so any engine without `text-wrap: balance` would still render the
+   wide second line. Sizing into the greedy window makes the target rag the
+   natural break and leaves balance as insurance: it keeps the block balanced at
+   viewport widths nobody pinned, which hard <br>s could not.
+
+   Expressing the limit in `ch` is what carries this down the clamp: ch scales
+   with the font size, so the same four-line rag survives every width measured
+   from 1680 down to 390px (at 390 the type floors at 36px, the block is 302px
+   and the widest line 283px — still inside the viewport). No media query, and
+   no separate mobile rag to maintain.
+
+   NOT A SIZE CHANGE: font-size, weight, tracking and copy are untouched, and
+   four lines at line-height 1.08 is the same 241.9px block as before, so nothing
+   below the headline moves. */
 .hero__title {
   margin: 0;
-  max-width: 16ch;
+  max-width: 12.6ch;
+  text-wrap: balance;
   font-family: var(--font-display);
   text-transform: uppercase;
   font-size: clamp(36px, 5vw, 56px);

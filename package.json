@@ -24,7 +24,8 @@
     "check:exit": "node scripts/check-exit-animation.mjs",
     "logos:logotype": "node scripts/logotype-variants.mjs",
     "check:rails": "node scripts/check-rails-align.mjs",
-    "check:offline": "node scripts/check-offline-wasm.mjs"
+    "check:offline": "node scripts/check-offline-wasm.mjs",
+    "check:rag": "node scripts/check-hero-rag.mjs"
   },
   "dependencies": {
     "@rive-app/react-webgl2": "^4.30.0",
