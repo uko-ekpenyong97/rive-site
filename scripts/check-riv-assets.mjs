@@ -36,9 +36,10 @@ const RAILS = "src/components/AudienceRails.tsx";
 const ASSET_DIR = "src/assets/rive";
 const SITE = "src/components/riveSiteAssets.ts";
 const SITE_DIR = "public/rive/site";
+const LOOP = "src/components/LoopCanvas.tsx";
 
 /** Expected config counts. A mismatch means the parser broke, not that the repo shrank. */
-const EXPECT = { heroes: 5, glyphs: 3, site: 3 };
+const EXPECT = { heroes: 5, glyphs: 3, site: 3, loop: 1 };
 
 const problems = [];
 const fail = (m) => problems.push(m);
@@ -192,6 +193,74 @@ function siteConfigs() {
   return out;
 }
 
+/**
+ * The Loop character (WorkflowStack). Its config is neither a content-table
+ * entry nor a public/ path — it is a set of exported constants in the component,
+ * so it needed its own parser and went unchecked until 2026-08-01.
+ *
+ * THE GAP THIS CLOSES: loop.riv was re-exported that day and the swap could have
+ * renamed `BeatMachine`, reordered the artboards, or dropped a `Beat` value with
+ * CI staying entirely green — the same failure class as the AudienceRails glyphs
+ * incident, on the file most likely to be re-exported again.
+ *
+ * ENUM VALUES ARE THE POINT. Everything else here fails loudly at runtime; a
+ * `viewModelInstance.enum("beat").value = "wire"` against a file that no longer
+ * defines `wire` is a SILENT no-op. The character just stops changing beat.
+ */
+function loopConfig() {
+  const { text, map } = rivImports(LOOP);
+  const file = map.get("loopRivUrl");
+  if (!file) {
+    fail(`${LOOP}: no \`loop.riv?url\` import found — cannot locate the asset`);
+    return [];
+  }
+  const str = (name) => text.match(new RegExp(`${name}\\s*=\\s*"([^"]+)"`))?.[1];
+  const arr = (name) => {
+    const m = text.match(new RegExp(`${name}\\s*=\\s*\\[([^\\]]*)\\]`));
+    return m ? [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]) : null;
+  };
+
+  const artboard = str("LOOP_ARTBOARD");
+  const stateMachine = str("LOOP_STATE_MACHINE");
+  const viewModel = str("LOOP_VIEW_MODEL");
+  const enumName = str("LOOP_BEAT_ENUM");
+  const beats = arr("BEATS");
+  const vmProps = arr("LOOP_VM_PROPERTIES");
+
+  /* Refuse to check a partial contract — a parser that silently finds three of
+     six constants would print success while verifying almost nothing. */
+  const missing = Object.entries({
+    LOOP_ARTBOARD: artboard,
+    LOOP_STATE_MACHINE: stateMachine,
+    LOOP_VIEW_MODEL: viewModel,
+    LOOP_BEAT_ENUM: enumName,
+    BEATS: beats,
+    LOOP_VM_PROPERTIES: vmProps,
+  })
+    .filter(([, v]) => !v || (Array.isArray(v) && v.length === 0))
+    .map(([k]) => k);
+  if (missing.length) {
+    fail(
+      `${LOOP}: could not parse [${missing.join(", ")}] — the Loop contract cannot be ` +
+        `checked. Refusing to verify a partial contract.`,
+    );
+    return [];
+  }
+
+  return [
+    {
+      where: LOOP,
+      file,
+      artboard,
+      stateMachine,
+      viewModel,
+      viewModelProperties: vmProps,
+      enumName,
+      enumValues: beats,
+    },
+  ];
+}
+
 /** Every .riv under src/ that any source file imports. Catches dead assets. */
 function importedAnywhere() {
   const seen = new Set();
@@ -211,10 +280,11 @@ function importedAnywhere() {
   return seen;
 }
 
-const configs = [...heroConfigs(), ...glyphConfigs(), ...siteConfigs()];
+const configs = [...heroConfigs(), ...glyphConfigs(), ...siteConfigs(), ...loopConfig()];
 const heroCount = configs.filter((c) => c.where === CONTENT).length;
 const glyphCount = configs.filter((c) => c.where === RAILS).length;
 const siteCount = configs.filter((c) => c.where === SITE).length;
+const loopCount = configs.filter((c) => c.where === LOOP).length;
 
 if (heroCount !== EXPECT.heroes) {
   fail(
@@ -233,6 +303,13 @@ if (siteCount !== EXPECT.site) {
   fail(
     `parser found ${siteCount} site configs in ${SITE}, expected ${EXPECT.site} — ` +
       `the parser is broken or the asset set changed. Refusing to check a partial set.`,
+  );
+}
+
+if (loopCount !== EXPECT.loop) {
+  fail(
+    `parser found ${loopCount} Loop config in ${LOOP}, expected ${EXPECT.loop} — ` +
+      `the parser is broken or the contract moved. Refusing to check a partial set.`,
   );
 }
 
@@ -381,6 +458,60 @@ for (const cfg of configs) {
       continue;
     }
     inputNote += `  pointer:${cfg.pointer}${listens ? " (file has listeners; canvas is display-only)" : ""}`;
+  }
+
+  /* VIEW-MODEL PARITY (Loop only for now). autoBind binds the file's default
+     view model, and every property below is written by name at runtime — an
+     unknown name is a no-op, never an error. */
+  if (cfg.viewModel) {
+    const vm = result.viewModels.find((v) => v.name === cfg.viewModel);
+    if (!vm) {
+      fail(
+        `${rel}: config binds view model "${cfg.viewModel}" — file contains ` +
+          `[${result.viewModels.map((v) => v.name).join(", ") || "none"}]\n` +
+          `      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+    const propNames = vm.properties.map((p) => p.name);
+    const goneProps = cfg.viewModelProperties.filter((n) => !propNames.includes(n));
+    if (goneProps.length) {
+      fail(
+        `${rel}: config writes "${cfg.viewModel}" propert(ies) [${goneProps.join(", ")}] ` +
+          `that the file does not define — file has [${propNames.join(", ") || "none"}]\n` +
+          `      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+
+    /* ENUM VALUES. The silent one: writing a value the file no longer defines
+       does not throw, so this is the only place it can be caught. */
+    const en = result.enums.find((e) => e.name === cfg.enumName);
+    if (!en) {
+      fail(
+        `${rel}: config names enum "${cfg.enumName}" — file contains ` +
+          `[${result.enums.map((e) => e.name).join(", ") || "none"}]\n` +
+          `      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+    const goneValues = cfg.enumValues.filter((v) => !en.values.includes(v));
+    if (goneValues.length) {
+      fail(
+        `${rel}: enum "${cfg.enumName}" is missing value(s) [${goneValues.join(", ")}] ` +
+          `that the config writes — file defines [${en.values.join(", ")}]. ` +
+          `Writing a value the file does not define is a SILENT no-op.\n` +
+          `      configured in ${cfg.where}`,
+      );
+      continue;
+    }
+    /* Extra values in the file are reported, not failed: the file may legitimately
+       carry a beat the site has not wired yet. Unwired is a choice; missing is a bug. */
+    const extra = en.values.filter((v) => !cfg.enumValues.includes(v));
+    inputNote +=
+      `  vm ${cfg.viewModel} (${cfg.viewModelProperties.length}/${propNames.length} props)` +
+      `  enum ${cfg.enumName} ${cfg.enumValues.length}/${en.values.length}` +
+      (extra.length ? ` (file also has: ${extra.join(", ")})` : "");
   }
 
   const sm = cfg.stateMachine ? `  sm ${cfg.stateMachine}` : "";

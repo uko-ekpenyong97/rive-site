@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import LoopCanvas, { type Beat } from "./LoopCanvas";
+import LoopCanvas, { BEATS as LOOP_BEATS, type Beat } from "./LoopCanvas";
 import SectionHeader from "./SectionHeader";
 import "./WorkflowStack.css";
 
@@ -43,7 +43,10 @@ const CARDS: WorkflowCard[] = [
   },
 ];
 
-const BEATS: Beat[] = ["design", "animate", "wire", "bind", "live"];
+/* One source with LoopCanvas — these are the file's own enum values, and the
+   card order IS the beat order. Duplicating the list here would let the two
+   drift with nothing to notice. */
+const BEATS: readonly Beat[] = LOOP_BEATS;
 
 /* Feel dials */
 const BIND_STALL_FRAC = 0.08; // last 8% of the beat-4 zone holds 99 (the joke)

@@ -5,7 +5,47 @@ import { useRive } from "@rive-app/react-webgl2";
 import loopRivUrl from "../assets/rive/loop.riv?url";
 import "./LoopCanvas.css";
 
-export type Beat = "design" | "animate" | "wire" | "bind" | "live";
+/* ──────────────────────────────────────────────────────────────────────────
+ * THE loop.riv CONTRACT — asserted against the COMMITTED BYTES by
+ * `npm run check:assets` (scripts/check-riv-assets.mjs).
+ *
+ * WHY THESE ARE CONSTANTS AND NOT STRING LITERALS AT THE POINT OF USE: every
+ * name below is a promise about a file this component cannot typecheck against.
+ * `tsc` never reads a .riv, `vite build` only copies it, and the Vitest suite
+ * mocks the runtime — so a mock agrees with whatever name the config claims.
+ * loop.riv is also the file most likely to be re-exported again, and it already
+ * has been once (2026-08-01, JetBrains Mono).
+ *
+ * THE ENUM VALUES ARE THE SHARP EDGE. `beat` is written through
+ * `viewModelInstance.enum("beat")`, and a write of a value the file no longer
+ * defines does not throw — it is a silent no-op, so the character simply stops
+ * changing beat while every test stays green. `BEATS` is therefore the ONE
+ * source: `Beat` derives from it, `WorkflowStack` iterates it, and check:assets
+ * parses it out of this file and compares against the enum in the bytes.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Every value of the file's `Beat` data enum, in authored order. */
+export const BEATS = ["design", "animate", "wire", "bind", "live"] as const;
+export type Beat = (typeof BEATS)[number];
+
+/** The artboard this canvas mounts. Not passed to `useRive` — it is the file's
+ *  default (first) artboard — but pinned so a re-export cannot reorder it. */
+export const LOOP_ARTBOARD = "Loop";
+/** The state machine driven on mount. */
+export const LOOP_STATE_MACHINE = "BeatMachine";
+/** The view model `autoBind` binds, and the name of the enum on it. */
+export const LOOP_VIEW_MODEL = "LoopVM";
+export const LOOP_BEAT_ENUM = "Beat";
+/** Every LoopVM property this component writes. */
+export const LOOP_VM_PROPERTIES = [
+  "beat",
+  "progress",
+  "pointerOver",
+  "pointerX",
+  "pointerY",
+  "press",
+  "errorTrip",
+] as const;
 
 /* Feel dials (see loop spec §7) */
 const PROGRESS_LERP = 0.12; // per-frame approach toward target — sweep, not teleport
@@ -32,7 +72,7 @@ export interface LoopCanvasProps {
 export function LoopCanvas({ beat, progressTargetRef, reduceMotion = false, className }: LoopCanvasProps) {
   const { rive, RiveComponent } = useRive({
     src: loopRivUrl,
-    stateMachines: "BeatMachine",
+    stateMachines: LOOP_STATE_MACHINE,
     autoplay: true,
     autoBind: true,
   });

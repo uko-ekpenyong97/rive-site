@@ -135,6 +135,40 @@ function describeProperties(viewModel) {
   }
 }
 
+/**
+ * DATA ENUMS AND THEIR VALUES.
+ *
+ * The view-model listing reports a property as `beat:enumType` and stops there —
+ * the type, never the members. That is a real blind spot: `LoopCanvas` writes
+ * `viewModelInstance.enum("beat").value = beat`, so a renamed or dropped enum
+ * VALUE compiles, runs, and silently does nothing, which is the isHovercenter
+ * failure exactly. The names were readable all along; nothing was asking.
+ *
+ * Shapes differ across runtime versions — some builds hand back JS arrays, some
+ * embind vectors with size()/get(). Both are unwrapped rather than assumed.
+ */
+function describeEnums(file) {
+  try {
+    if (typeof file.enums !== "function") return [];
+    const raw = file.enums();
+    const list = (v) => {
+      if (!v) return [];
+      if (typeof v.size === "function") {
+        const out = [];
+        for (let i = 0; i < v.size(); i++) out.push(v.get(i));
+        return out;
+      }
+      return Array.from(v);
+    };
+    return list(raw).map((e) => ({
+      name: e.name,
+      values: list(e.values).map(String),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function probe(path) {
   const bytes = readFileSync(path);
   const result = {
@@ -144,6 +178,7 @@ export async function probe(path) {
     magic: bytes.subarray(0, 4).toString("ascii"),
     artboards: [],
     viewModels: [],
+    enums: [],
   };
 
   if (result.magic !== "RIVE") {
@@ -230,6 +265,8 @@ export async function probe(path) {
     });
   }
 
+  result.enums = describeEnums(file);
+
   return result;
 }
 
@@ -278,6 +315,12 @@ function report(r) {
     if (vm.instances.length) {
       line.push(`      instances: ${vm.instances.join(", ")}`);
     }
+  }
+  /* Enum MEMBERS, not just the `:enumType` marker on the property above. A
+     config can name an enum value that no longer exists and the write is a
+     silent no-op, so the values have to be visible to be checkable. */
+  for (const e of r.enums) {
+    line.push(`  enum ${e.name}  (${e.values.length}): ${e.values.join(", ")}`);
   }
   return line.join("\n");
 }
