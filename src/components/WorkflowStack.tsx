@@ -161,9 +161,18 @@ export function WorkflowStack() {
               className="workflow-stack__card"
               style={{ "--card-index": index } as React.CSSProperties}
             >
-              <div className="workflow-stack__copy">
-                <span className="workflow-stack__step">{card.step}</span>
+              {/* THE BAND IS THE PEEK STRIP. Its height is --stack-stagger
+                  exactly, so the part of a covered card that still shows above
+                  the next one is this row — which turns the stack into an index
+                  of where you are rather than four blank edges. The category
+                  label leads because it is what the peek has to carry; STEP NN
+                  sits beside it rather than above, so both start at the same y
+                  in all five cards. */}
+              <div className="workflow-stack__band">
                 <span className="workflow-stack__card-eyebrow">{card.eyebrow}</span>
+                <span className="workflow-stack__step">{card.step}</span>
+              </div>
+              <div className="workflow-stack__copy">
                 <h3 className="workflow-stack__title">{card.title}</h3>
                 <p className="workflow-stack__body">{card.body}</p>
               </div>

@@ -1,10 +1,72 @@
 .workflow-stack {
-  /* Tunable knobs for the sticky stack mechanic. */
-  --stack-stagger: var(--space-6);
-  --stack-travel: 240px;
-  /* Feel dial: card 5's approach IS the beat-4 scrub zone (progress 0→100).
-   * Deliberately longer than --stack-travel so the scrub feels substantial. */
-  --stack-travel-bind: 720px;
+  /* ── The card box. Dial these two live, then bake. ──────────────────────────
+   *
+   * Sized to the TALLEST card, not to an average. The copy is top-aligned now
+   * (see .workflow-stack__copy) so every card's title starts at the same y —
+   * which means all the leftover height falls to the bottom, and a box sized
+   * for the middle of the range would leave the shortest card looking hollow
+   * again. 240 = band 44 + gap 24 + card 4's 135.6 title+body + 32 bottom.
+   *
+   * The history: 420 → 288 removed 134.7px of dead band above AND below a
+   * centred copy block. Top-aligning then reintroduced it at the bottom (132px
+   * on card 1), so the height came down again to 240 to spend it. Consistency
+   * of text position and minimal dead space genuinely pull against each other
+   * here; this is the setting that serves both.
+   *
+   * `min-height`, not `height`: if a block ever does outgrow the box the card
+   * grows rather than clipping. Which cards grow, if any, is pinned by
+   * check:stack at every width. */
+  --workflow-card-height: 240px;
+  /* One token step up from --space-8, so the copy sits further inside the card
+   * (measured inset 33px → 49px). Both sides, not just the left: only the left
+   * is visible against left-aligned text, but a card with lopsided horizontal
+   * padding stops reading as a card. */
+  --workflow-card-padding-x: var(--space-12);
+  --workflow-card-padding-y: var(--space-8);
+
+  /* ── Stack choreography ─────────────────────────────────────────────────────
+   *
+   * THE INVARIANTS ARE DWELL AND SCRUB, NOT TRAVEL. Card height and the flow
+   * gap both feed the scroll distance between one card pinning and the next
+   * arriving — that distance is the time each beat holds, and it is what the
+   * sequence's pacing actually is:
+   *
+   *     dwell = card height + travel        (scroll per beat)
+   *     scrub = card height + travel-bind   (card 5's approach = beat-4's 0→100)
+   *
+   * So travel is DERIVED from the invariant rather than written down. Shrinking
+   * the card from 420 to 288 with travel left at 240 would have cut dwell from
+   * 660 to 528 — every beat arriving 20% early — and nothing on screen would
+   * have said so. Expressed this way, dialling --workflow-card-height
+   * re-preserves the cadence by construction.
+   *
+   * The PEEK is unaffected by any of this: it is --stack-stagger alone, since
+   * each card pins exactly that much lower than the one before.
+   *
+   * (Same shape as --marquee-duration: state the invariant, derive the number,
+   * so the next change recomputes instead of copying.) */
+  /* THE STAGGER IS THE BAND HEIGHT, and that is not a coincidence to be
+   * maintained by hand — the band IS the peek strip, so any stagger smaller
+   * than the band clips the category label mid-glyph. Sized from the label:
+   *
+   *     21px eyebrow line-height + 2 x 11.5px breathing = 44px
+   *
+   * (21px, not the ~16px a 14px font suggests — Tomorrow's line box is taller,
+   * which is why 36px would have left only 7.5px of clearance.)
+   *
+   * It does NOT feed dwell or scrub, so changing it re-paces nothing. */
+  --stack-stagger: 44px;
+
+  /* The canvas matches the FINAL composition on the left: four peek strips
+   * plus the active card. Derived, so dialling either input keeps them level. */
+  --workflow-canvas-size: calc(
+    4 * var(--stack-stagger) + var(--workflow-card-height)
+  );
+
+  --stack-dwell: 660px;
+  --stack-scrub: 1140px;
+  --stack-travel: calc(var(--stack-dwell) - var(--workflow-card-height));
+  --stack-travel-bind: calc(var(--stack-scrub) - var(--workflow-card-height));
 
   display: flex;
   flex-direction: column;
@@ -15,7 +77,7 @@
 
 .workflow-stack__cards {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--workflow-canvas-size));
   gap: var(--space-8);
   align-items: start;
 }
@@ -25,6 +87,22 @@
 .workflow-stack__cardcol {
   position: relative;
   min-width: 0;
+
+  /* A TAIL, so the last beat has dwell like every other one.
+   *
+   * Without it the column ends at card 5's own bottom, which has two effects
+   * that look unrelated and are the same bug: card 5 gets a zero-length sticky
+   * range (it can never pin, it just travels past), and the canvas — whose
+   * sticky range is this column — hits its limit at the exact instant card 5
+   * arrives and is pushed up out of the viewport while Celebrate is playing.
+   * Measured before this: canvas top −19.9px then −59.9px, i.e. the character
+   * clipped during the beat it exists to land.
+   *
+   * One dwell of tail gives beat 5 the same hold as beats 1-4, lets card 5 pin
+   * like its siblings, and keeps the canvas level with the composition through
+   * the whole of the final beat instead of for one frame of it. Costs one dwell
+   * of scroll — the honest price of the last beat being a beat at all. */
+  padding-bottom: var(--stack-dwell);
 }
 
 /* Later cards start lower in the flow so they scroll up into the pin. */
@@ -48,9 +126,16 @@
 
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  min-height: 420px;
-  padding: var(--space-8);
+  /* TOP-ALIGNED, not centred. Centring put each card's text at a different
+     distance from the top, because the copy blocks differ by up to 48px — the
+     inconsistency the owner saw. Aligning to the top makes the band and the
+     title start at the same y in all five, and sends the variance to the
+     bottom edge where it reads as breathing room instead of misalignment. */
+  justify-content: flex-start;
+  min-height: var(--workflow-card-height);
+  /* No top padding: the band occupies the top edge exactly, because the band
+     is what shows in the peek. Its own height provides the inset. */
+  padding: 0 var(--workflow-card-padding-x) var(--workflow-card-padding-y);
 
   background: var(--surface-default);
   border: 1px solid var(--border-subtle);
@@ -58,13 +143,25 @@
   box-sizing: border-box;
 }
 
-/* ------------------------------------------------------------------ Card copy */
+/* ------------------------------------------------------------ Card band + copy */
+
+/* Exactly --stack-stagger tall, so the strip left visible when the next card
+   covers this one is precisely this row. The label is centred in it rather than
+   pinned to a padding value, which keeps it optically placed at any stagger. */
+.workflow-stack__band {
+  flex: 0 0 auto;
+  height: var(--stack-stagger);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
 
 .workflow-stack__copy {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   max-width: 480px;
+  margin-top: var(--space-6);
 }
 
 .workflow-stack__step {
@@ -104,10 +201,22 @@
   min-width: 0;
 }
 
-/* Pin aligned with the first card's pin offset; the canvas never unmounts. */
+/* Pin aligned with the first card's pin offset; the canvas never unmounts.
+ *
+ * WHY 96px IS STILL RIGHT, derived rather than left alone: at the final beat
+ * the composition on the left runs from card 1's pin (96px) to card 5's bottom
+ * (96 + 4 x stagger + card height). Sizing the canvas to
+ * `4 * stagger + card height` and pinning it at the same 96px makes both spans
+ * identical — top level with the topmost peek strip, bottom level with the
+ * active card. Because both are anchored to 96, it holds at every beat, not
+ * only at the last one: during beats 1-4 fewer strips exist above the active
+ * card, so the canvas simply extends below the shorter stack, still top-aligned
+ * with it as it grows. */
 .workflow-stack__canvas.loop-canvas {
   position: sticky;
   top: 96px;
+  width: var(--workflow-canvas-size);
+  max-width: 100%;
   max-height: calc(100vh - 128px);
 }
 
@@ -115,13 +224,23 @@
 
 @media (max-width: 1024px) {
   .workflow-stack {
-    --stack-stagger: var(--space-4);
-    --stack-travel: 160px;
-    --stack-travel-bind: 480px;
-  }
-
-  .workflow-stack__card {
-    padding: var(--space-6);
+    /* --stack-stagger is NOT reduced here, deliberately. It shipped at 16px,
+       but the band is the peek now and a 16px strip would slice a 21px label
+       through the middle. Band and stagger have to move together at every
+       width, so this breakpoint pays 4 x 28px of extra offset rather than
+       clipping the label. Cadence is unaffected — stagger feeds neither dwell
+       nor scrub. */
+    /* Today's cadence, restated as the invariant: this breakpoint shipped
+       travel 160 / bind 480 against a 420px card, i.e. dwell 580 / scrub 900.
+       Holding those means travel derives to 292 / 612 at the new height — the
+       numbers move, the pacing does not, which is the point. */
+    --stack-dwell: 580px;
+    --stack-scrub: 900px;
+    /* The card is only ~384px wide here, so --space-12 horizontal would spend
+       a quarter of the measure on padding. Back to the uniform 24px this
+       breakpoint already used. */
+    --workflow-card-padding-x: var(--space-6);
+    --workflow-card-padding-y: var(--space-6);
   }
 }
 
@@ -139,14 +258,26 @@
     height: auto;
   }
 
+  /* Single column: the canvas rides above the cards rather than beside them,
+     so there is no composition to match and the derived width does not apply.
+     Back to filling its column, capped by 60vh. */
   .workflow-stack__canvas.loop-canvas {
     position: static;
+    width: 100%;
     max-height: 60vh;
     margin: 0 auto;
   }
 
+  /* Single column: the copy runs full width and wraps taller, so this
+     breakpoint keeps its own 320px card. With dwell 480 / scrub 800 the
+     derived travel is 160 / 480 — byte-identical to what shipped. */
+  .workflow-stack {
+    --workflow-card-height: 320px;
+    --stack-dwell: 480px;
+    --stack-scrub: 800px;
+  }
+
   .workflow-stack__card {
     top: calc(60vh + var(--space-8) + var(--card-index) * var(--stack-stagger));
-    min-height: 320px;
   }
 }
