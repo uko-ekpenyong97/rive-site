@@ -83,14 +83,26 @@ interface Rail {
  * ────────────────────────────────────────────────────────────────────── */
 
 /* Copy discipline (spec §1): heading plus at most two lines per rail. The glyph
-   carries the feel; the text carries the offer. */
+   carries the feel; the text carries the offer.
+ *
+ * DESTINATIONS — each rail points at the docs page for its craft (verified 200
+ * on 2026-08-01). All three leave the site, so all three open in a new tab; see
+ * the rel/target note below.
+ *
+ * THE DESIGNER LABEL CHANGED WITH ITS DESTINATION. It read "Explore the editor →"
+ * and pointed at editor.rive.app — the app itself. Pointing that label at a docs
+ * page would have promised the editor and delivered documentation, so the label
+ * moved with the link rather than being left behind. Rails 2 and 3 already named
+ * documentation, so this brings the designer rail into line with them instead of
+ * making it the odd one out. Logged in spec §11.
+ */
 const RAILS: Rail[] = [
   {
     marker: "01 — DESIGNERS",
     headline: "Design with real logic",
     body: "The pen tool and components you know — plus state machines you build visually, not in code.",
-    cta: "Explore the editor →",
-    href: "https://editor.rive.app",
+    cta: "Start with artboards →",
+    href: "https://rive.app/docs/editor/fundamentals/artboards",
     src: glyphDesignerUrl,
     artboard: "GlyphDesigner",
     bytes: 5_930,
@@ -100,7 +112,8 @@ const RAILS: Rail[] = [
     headline: "Animate for runtime",
     body: "Timelines, keyframes, and easing you already know — except the output ships interactive.",
     cta: "See animation tools →",
-    href: "#",
+    /* Was "#" — a dead link shipped behind a live-looking label. */
+    href: "https://rive.app/docs/editor/animate-mode/animate-mode-overview",
     src: glyphAnimatorUrl,
     artboard: "GlyphAnimator",
     bytes: 2_676,
@@ -110,7 +123,7 @@ const RAILS: Rail[] = [
     headline: "Ship it natively",
     body: "Open-source runtimes everywhere. Data binding is the contract — bind in code, design keeps moving.",
     cta: "Read the docs →",
-    href: "https://rive.app/docs",
+    href: "https://rive.app/docs/runtimes/getting-started",
     src: glyphDeveloperUrl,
     artboard: "GlyphDeveloper",
     bytes: 4_299,
@@ -154,7 +167,15 @@ export function AudienceRails() {
             <span className="audience-rails__marker">{rail.marker}</span>
             <h3 className="audience-rails__headline">{rail.headline}</h3>
             <p className="audience-rails__body">{rail.body}</p>
-            <a className="text-link" href={rail.href}>
+            {/* Leaves the site, so it opens in a new tab like every other
+                outbound link here. `noreferrer` alongside `noopener` is the
+                house rel now — one convention, the stricter one. */}
+            <a
+              className="text-link"
+              href={rail.href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               {rail.cta}
             </a>
           </div>

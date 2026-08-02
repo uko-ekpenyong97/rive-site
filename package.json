@@ -25,7 +25,8 @@
     "logos:logotype": "node scripts/logotype-variants.mjs",
     "check:rails": "node scripts/check-rails-align.mjs",
     "check:offline": "node scripts/check-offline-wasm.mjs",
-    "check:rag": "node scripts/check-hero-rag.mjs"
+    "check:rag": "node scripts/check-hero-rag.mjs",
+    "check:links": "node scripts/check-links.mjs"
   },
   "dependencies": {
     "@rive-app/react-webgl2": "^4.30.0",

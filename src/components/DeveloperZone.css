@@ -34,6 +34,11 @@
   gap: var(--space-2);
 }
 
+/* Each chip links to its runtime's docs. It was a presentational <span> and the
+   box is deliberately unchanged by the swap — same padding, border, radius,
+   background and mono 12px — so the anchor adds interaction without moving a
+   pixel. `text-decoration: none` and `display: inline-block` are the only
+   additions the element type forces. */
 .developer-zone__pill {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -42,6 +47,27 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
   background: var(--surface-raised);
+  display: inline-block;
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+/* Hover borrows `.text-link`'s accent shift so the chips read as the same class
+   of outbound link as "Read the docs →" beneath them; the border follows so the
+   whole chip responds, not just its text. */
+.developer-zone__pill:hover {
+  color: var(--text-accent);
+  border-color: var(--border-default);
+}
+
+/* The house focus ring — identical to Button.css, BentoCell.css and this
+   component's own copy button. Keyboard users get the same affordance the
+   pointer gets, which the <span> could not offer at all. */
+.developer-zone__pill:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  color: var(--text-accent);
 }
 
 .developer-zone__links {

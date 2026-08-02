@@ -62,7 +62,10 @@ describe("the nine cards", () => {
 
   it("sends every link off-site safely", () => {
     expect(count(html, /target="_blank"/g)).toBe(10);
-    expect(count(html, /rel="noopener"/g)).toBe(10);
+    /* `noopener noreferrer`, not bare `noopener` — the repo carried both
+       spellings until 2026-08-01 and now carries only the stricter one.
+       src/__tests__/outboundLinks.test.tsx enforces that site-wide. */
+    expect(count(html, /rel="noopener noreferrer"/g)).toBe(10);
   });
 });
 

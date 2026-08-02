@@ -3,16 +3,49 @@ import { html as snippetHtml, source as snippetSource } from "virtual:dev-zone-s
 import SectionHeader from "./SectionHeader";
 import "./DeveloperZone.css";
 
-const RUNTIMES = [
-  "WEB",
-  "REACT",
-  "IOS",
-  "ANDROID",
-  "FLUTTER",
-  "UNITY",
-  "UNREAL",
-  "C++",
+interface Runtime {
+  label: string;
+  href: string;
+}
+
+/**
+ * The runtime chips and where each one goes.
+ *
+ * ONE DATA STRUCTURE, not hrefs scattered through JSX — the same shape
+ * `useCaseContent` uses, so a docs reorg is one edit in one table and the href
+ * pin in `src/__tests__/outboundLinks.test.tsx` diffs instead of the site 404ing
+ * quietly.
+ *
+ * SOURCE: every URL read off rive.app/docs/runtimes/getting-started and verified
+ * 200 on 2026-08-01. Three of them do not follow the pattern the labels suggest,
+ * which is exactly why they are recorded rather than derived from the label:
+ *   · IOS      → Rive publishes this as "Apple", not "ios"
+ *   · UNITY    → lives under /game-runtimes/, not /runtimes/
+ *   · UNREAL   → likewise /game-runtimes/
+ *   · C++      → has no docs subpage at all; the GitHub repo IS the reference
+ */
+const RUNTIMES: Runtime[] = [
+  { label: "WEB", href: "https://rive.app/docs/runtimes/web" },
+  { label: "REACT", href: "https://rive.app/docs/runtimes/react" },
+  { label: "IOS", href: "https://rive.app/docs/runtimes/apple" },
+  { label: "ANDROID", href: "https://rive.app/docs/runtimes/android" },
+  { label: "FLUTTER", href: "https://rive.app/docs/runtimes/flutter" },
+  { label: "UNITY", href: "https://rive.app/docs/game-runtimes/unity" },
+  { label: "UNREAL", href: "https://rive.app/docs/game-runtimes/unreal" },
+  { label: "C++", href: "https://github.com/rive-app/rive-cpp" },
 ];
+
+/** The two section links under the chips. */
+const DOCS_URL = "https://rive.app/docs";
+/**
+ * SOURCE NOTE: rive.app's own site points its "Star on GitHub" link at the ORG
+ * page, github.com/rive-app — which cannot be starred, because GitHub has no
+ * star action on an organisation. We deliberately diverge and point at the
+ * runtime repo, so the label describes something the destination can actually
+ * do. Recorded because it is a knowing departure from the reference site, not
+ * an oversight in reading it.
+ */
+const GITHUB_URL = "https://github.com/rive-app/rive-runtime";
 
 /** How long "Copied" stays up before the button goes quiet again. */
 const COPIED_MS = 1600;
@@ -73,19 +106,38 @@ export function DeveloperZone() {
             enough, script it directly in the file.
           </p>
 
+          {/* Chips are anchors, not decoration. The box and type are unchanged
+              from the <span> they replaced — same padding, border, radius and
+              mono 12px — so becoming clickable costs no layout shift. */}
           <div className="developer-zone__pills">
-            {RUNTIMES.map((rt) => (
-              <span key={rt} className="developer-zone__pill">
-                {rt}
-              </span>
+            {RUNTIMES.map(({ label, href }) => (
+              <a
+                key={label}
+                className="developer-zone__pill"
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {label}
+              </a>
             ))}
           </div>
 
           <div className="developer-zone__links">
-            <a className="text-link" href="https://rive.app/docs">
+            <a
+              className="text-link"
+              href={DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Read the docs →
             </a>
-            <a className="text-link" href="https://github.com/rive-app">
+            <a
+              className="text-link"
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Star on GitHub →
             </a>
           </div>

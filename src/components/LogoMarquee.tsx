@@ -111,7 +111,7 @@ function LogoGroup({ hidden }: { hidden?: boolean }) {
             className="marquee__logo"
             href={href}
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             aria-label={hidden ? undefined : name}
             // The duplicated copy is decorative — keep it out of the tab order.
             tabIndex={hidden ? -1 : undefined}

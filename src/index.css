@@ -21,3 +21,20 @@ body {
 .text-link:hover {
   color: var(--text-accent);
 }
+
+/* The house focus ring — the same declaration Button.css, BentoCell.css and
+   DeveloperZone's chips and copy button all carry.
+ *
+ * `.text-link` had no focus rule at all, so keyboard users got the user-agent
+ * default: a 1px auto blue ring, off-brand and inconsistent with every other
+ * focusable thing on the site. It is used by AudienceRails, CommunityShowcase,
+ * UseCaseBento and DeveloperZone, so this is deliberately global rather than
+ * per-component — one promise about what focus looks like, kept everywhere.
+ *
+ * `:focus-visible` rather than `:focus`, so a mouse click does not leave a ring
+ * behind on a link that has just been followed. */
+.text-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  color: var(--text-accent);
+}

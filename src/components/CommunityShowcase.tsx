@@ -178,7 +178,7 @@ function Tile({ item, hidden }: { item: WallItem; hidden?: boolean }) {
       className="community-showcase__tile"
       href={item.href}
       target="_blank"
-      rel="noopener"
+      rel="noopener noreferrer"
       /* The seamless loop needs a second copy of every tile. Those copies are
          decorative duplicates: without this a keyboard user would tab through
          36 phantom links to cross an 18-file wall, and a screen reader would
@@ -269,7 +269,7 @@ export function CommunityShowcase() {
         </div>
       )}
 
-      <a className="text-link" href={COMMUNITY_URL} target="_blank" rel="noopener">
+      <a className="text-link" href={COMMUNITY_URL} target="_blank" rel="noopener noreferrer">
         Explore the community →
       </a>
     </section>

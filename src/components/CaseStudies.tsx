@@ -213,7 +213,7 @@ function StoryRow({ story, isOpen, isLast, onToggle }: StoryRowProps) {
             className="text-link"
             href={story.url}
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
           >
             Read the story →
           </a>

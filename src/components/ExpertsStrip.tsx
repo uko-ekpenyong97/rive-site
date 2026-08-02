@@ -134,7 +134,7 @@ export function ExpertsStrip() {
               className="experts-strip__card"
               href={expert.href}
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
             >
               {/* A monogram, never a photo. We hold no rights to nine people's
                   likenesses and no way to keep a scraped avatar current, so this
@@ -156,7 +156,7 @@ export function ExpertsStrip() {
         ))}
       </ul>
 
-      <a className="text-link" href={NETWORK_URL} target="_blank" rel="noopener">
+      <a className="text-link" href={NETWORK_URL} target="_blank" rel="noopener noreferrer">
         Browse all Rive Experts →
       </a>
     </section>
