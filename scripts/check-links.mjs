@@ -328,6 +328,284 @@ try {
   if (dot && dot.pointerEvents !== "none")
     bad(`DotField has pointer-events: ${dot.pointerEvents} — it can swallow clicks`);
 
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * THE MODALS' "Runs on" CHIPS.
+ *
+ * A separate walk because these do not exist until a modal is open, so the
+ * static page probe above cannot see them at all. Three things can only be
+ * answered here:
+ *   · the SCRIM and the ModalSheet must not intercept the click. The sheet is a
+ *     stacked, animated, transformed surface above a fixed backdrop — exactly
+ *     the arrangement where a chip can look perfect and be unclickable.
+ *   · the focus ring has to be visible against --surface-raised INSIDE the
+ *     sheet, not just against the page canvas.
+ *   · the link-less chip must be inert: not an anchor, not tabbable, and still
+ *     the element at its own centre.
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+/** label → expected href, or null where the chip is deliberately not a link. */
+const MODAL_CHIPS = {
+  "product-ui": {
+    "iOS": "https://rive.app/docs/runtimes/apple",
+    "Android": "https://rive.app/docs/runtimes/android",
+    "Flutter": "https://rive.app/docs/runtimes/flutter",
+    "React Native": "https://rive.app/docs/runtimes/react-native",
+    "Web": "https://rive.app/docs/runtimes/web",
+    "Framer": "https://rive.app/docs/editor/embed-urls/framer-and-rive",
+    "Webflow": "https://help.webflow.com/hc/en-us/articles/33961216978451-Embed-Rive-animations",
+  },
+  "game-ui": {
+    "Unity": "https://rive.app/docs/game-runtimes/unity",
+    "Unreal": "https://rive.app/docs/game-runtimes/unreal",
+    "Defold": "https://rive.app/docs/game-runtimes/defold",
+    "Custom engines": "https://github.com/rive-app/rive-cpp",
+  },
+  "websites": {
+    "Web": "https://rive.app/docs/runtimes/web",
+    "Framer": "https://rive.app/docs/editor/embed-urls/framer-and-rive",
+    "Webflow": "https://help.webflow.com/hc/en-us/articles/33961216978451-Embed-Rive-animations",
+  },
+  "automotive": { "Embedded devices": null },
+  "film-tv-broadcast": {
+    "Web": "https://rive.app/docs/runtimes/web",
+    "Embedded devices": null,
+  },
+  "campaigns": {
+    "iOS": "https://rive.app/docs/runtimes/apple",
+    "Android": "https://rive.app/docs/runtimes/android",
+    "Web": "https://rive.app/docs/runtimes/web",
+  },
+};
+
+/** Each modal's bento cell, identified by its visible eyebrow. */
+const EYEBROW = {
+  "product-ui": "PRODUCT UI",
+  "game-ui": "GAME UI",
+  "websites": "WEBSITES",
+  "automotive": "AUTOMOTIVE",
+  "film-tv-broadcast": "FILM, TV & BROADCAST",
+  "campaigns": "CAMPAIGNS",
+};
+
+const MODAL_PROBE = `(() => {
+  const overlay = document.querySelector('.modal-overlay');
+  if (!overlay) return { error: 'no .modal-overlay' };
+  const items = [...overlay.querySelectorAll('.runtime-chips__chip')];
+  if (!items.length) return { error: 'modal open but no .runtime-chips__chip in it' };
+  const FOCUSABLE = 'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  const trap = [...overlay.querySelectorAll(FOCUSABLE)].filter(e => e.getClientRects().length > 0);
+  return {
+    chips: items.map((el) => {
+      el.scrollIntoView({ block: 'center' });
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(Math.round(r.left + r.width/2), Math.round(r.top + r.height/2));
+      const cs = getComputedStyle(el);
+      return {
+        label: (el.textContent || '').trim(),
+        tag: el.tagName.toLowerCase(),
+        href: el.getAttribute('href'),
+        target: el.getAttribute('target'),
+        rel: el.getAttribute('rel'),
+        tabindex: el.getAttribute('tabindex'),
+        cursor: cs.cursor,
+        w: Math.round(r.width), h: Math.round(r.height),
+        hitIsSelf: !!hit && (hit === el || el.contains(hit)),
+        hitTag: hit ? hit.tagName.toLowerCase() : null,
+        hitClass: hit ? String(hit.className || '') : null,
+        inTrap: trap.includes(el),
+      };
+    }),
+    /* The tab order the sheet actually offers, so a change in WHERE the chips
+       sit is a visible diff and not a surprise. */
+    trapOrder: trap.map((e) => {
+      const t = (e.textContent || '').trim().replace(/[ \\t\\n\\r]+/g, ' ');
+      return e.tagName.toLowerCase() + ':' + (t.slice(0, 22) || e.getAttribute('aria-label') || '?');
+    }),
+  };
+})()`;
+
+const MODAL_FOCUS = (label) => `(() => {
+  const overlay = document.querySelector('.modal-overlay');
+  const el = [...overlay.querySelectorAll('a.runtime-chips__chip')]
+    .find((x) => (x.textContent || '').trim() === ${JSON.stringify(label)});
+  if (!el) return { error: 'not found' };
+  el.focus({ focusVisible: true });
+  const cs = getComputedStyle(el);
+  return {
+    active: document.activeElement === el,
+    matchesFocusVisible: el.matches(':focus-visible'),
+    outlineStyle: cs.outlineStyle, outlineWidth: cs.outlineWidth,
+    outlineColor: cs.outlineColor, outlineOffset: cs.outlineOffset,
+    /* The surface the ring is drawn against, so "visible on surface-raised" is
+       measured rather than assumed. */
+    chipBg: cs.backgroundColor,
+  };
+})()`;
+
+console.log("\n" + "─".repeat(64) + "\nmodal \u201cRuns on\u201d chips\n");
+
+let modalChipCount = 0;
+for (const [slug, expected] of Object.entries(MODAL_CHIPS)) {
+  /* Matched on the VISIBLE eyebrow, not the slug: `pageHref` is "#" for the use
+     cases with no page of their own (film-tv-broadcast, campaigns), so a
+     href-contains-slug search silently skips exactly those. */
+  const opened = await ev(`(() => {
+    const want = ${JSON.stringify(EYEBROW[slug])};
+    const cell = [...document.querySelectorAll('.bento-cell[data-expands]')]
+      .find((c) => (c.querySelector('.bento-cell__eyebrow')?.textContent || '').trim() === want);
+    if (!cell) return false;
+    cell.scrollIntoView({ block: 'center' });
+    cell.click();
+    return true;
+  })()`);
+  if (!opened) {
+    bad(`${slug}: could not find its bento cell to open the modal`);
+    continue;
+  }
+  /* The sheet glides in over 800ms; measuring mid-entrance reads a transformed,
+     part-way box and the hit test lands somewhere else entirely. */
+  await sleep(1400);
+
+  const r = await ev(MODAL_PROBE);
+  if (!r || r.error) {
+    bad(`${slug}: ${r?.error ?? "no result"}`);
+    await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+    await sleep(600);
+    continue;
+  }
+
+  const seen = r.chips.map((c) => c.label);
+  const want = Object.keys(expected);
+  if (seen.join("|") !== want.join("|"))
+    bad(`${slug}: chips are [${seen.join(", ")}], expected [${want.join(", ")}]`);
+
+  console.log(`  ${slug}`);
+  for (const c of r.chips) {
+    const wantHref = expected[c.label];
+    const notes = [];
+    if (wantHref === null) {
+      /* The inert chip. Every one of these is a way it could accidentally
+         dress like a link. */
+      if (c.tag !== "span") notes.push(`is <${c.tag}>, must be a plain <span>`);
+      if (c.href) notes.push(`has href ${c.href}, must have none`);
+      if (c.tabindex !== null) notes.push(`has tabindex="${c.tabindex}", must not be tabbable`);
+      if (c.inTrap) notes.push(`is in the modal focus trap, must not be`);
+      if (c.cursor === "pointer") notes.push(`shows cursor:pointer, must not look clickable`);
+    } else {
+      if (c.tag !== "a") notes.push(`is <${c.tag}>, expected <a>`);
+      if (c.href !== wantHref) notes.push(`href is ${c.href}, expected ${wantHref}`);
+      if (c.target !== "_blank") notes.push(`target is ${c.target ?? "(none)"}`);
+      if (c.rel !== "noopener noreferrer") notes.push(`rel is ${c.rel ?? "(none)"}`);
+      if (!c.inTrap) notes.push(`is NOT in the modal focus trap — unreachable by keyboard`);
+    }
+    if (c.w < 8 || c.h < 8) notes.push(`hit area ${c.w}x${c.h}`);
+    if (!c.hitIsSelf)
+      notes.push(`centre covered by <${c.hitTag} class="${c.hitClass}"> — scrim or sheet is intercepting`);
+
+    modalChipCount++;
+    if (notes.length) failures += notes.length;
+    console.log(
+      `    ${notes.length ? "\u2717" : "\u2713"} ${c.label.padEnd(17)}` +
+        `${(wantHref === null ? "static" : c.tag).padEnd(7)}${c.hitIsSelf ? "self" : "COVERED"}  ` +
+        `${wantHref === null ? "(no link, by decision)" : c.href}`,
+    );
+    for (const n of notes) console.error(`        ${n}`);
+  }
+
+  /* Ring measured on a real chip inside this sheet. */
+  const firstLinked = r.chips.find((c) => expected[c.label] !== null);
+  if (firstLinked) {
+    const f = await ev(MODAL_FOCUS(firstLinked.label));
+    if (!f || f.error) bad(`${slug}: could not focus "${firstLinked.label}"`);
+    else if (!f.matchesFocusVisible)
+      bad(`${slug}: "${firstLinked.label}" focused but :focus-visible does not match`);
+    else if (f.outlineStyle === "auto")
+      bad(`${slug}: "${firstLinked.label}" shows the USER-AGENT ring inside the sheet`);
+    else if (f.outlineColor !== ring)
+      bad(`${slug}: ring is ${f.outlineColor}, expected --focus-ring ${ring}`);
+    else
+      console.log(
+        `      ring ${f.outlineWidth} ${f.outlineStyle} ${f.outlineColor} offset ${f.outlineOffset} on ${f.chipBg}`,
+      );
+  }
+
+  console.log(`      tab order: ${r.trapOrder.join(" → ")}`);
+
+  await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+  await sleep(700);
+}
+
+const wantChips = Object.values(MODAL_CHIPS).reduce((n, o) => n + Object.keys(o).length, 0);
+if (modalChipCount !== wantChips)
+  bad(`walked ${modalChipCount} modal chips, expected ${wantChips}`);
+else console.log(`\n  ${modalChipCount} modal chips walked across ${Object.keys(MODAL_CHIPS).length} modals`);
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * WEBFLOW HOST REACHABILITY — and an honest account of what it cannot prove.
+ *
+ * help.webflow.com sits behind Cloudflare's bot challenge. curl and headless
+ * Chrome both get 403 + a "Just a moment..." interstitial; a real visitor's
+ * browser passes it and reads the article. So a 403 here is EXPECTED and is not
+ * evidence of a broken link.
+ *
+ * WHAT THIS PROBE PROVES: the host resolves and is serving. It fails on DNS
+ * failure, on connection refused, and on a 15s timeout — so "expected 403"
+ * cannot quietly cover for a host that has gone away entirely.
+ *
+ * WHAT IT DOES NOT PROVE, MEASURED RATHER THAN ASSUMED: that the ARTICLE exists.
+ * Cloudflare challenges before routing, so a deliberately fabricated article id
+ * on this host returns 403 exactly like the real one — verified 2026-08-01 by
+ * pointing this at `.../00000000000000-Deleted-Article`, which sailed through.
+ * A 404 branch is kept below because it is the correct response if Webflow ever
+ * stops challenging, but it must not be read as active coverage today.
+ *
+ * So the article's existence rests on TWO things that are not this probe:
+ * HUMAN VERIFICATION 2026-08-01 (the page loads in a normal browser and
+ * documents Webflow's native Rive support), and the exact-string pins in
+ * outboundLinks.test.tsx and the modal walk above — which is what actually
+ * caught the fabricated id during that test.
+ *
+ * This is the only network call the check makes, and deliberately so — it is not
+ * a general liveness suite. The other destinations are on rive.app and github.com
+ * and are pinned by string; adding eleven more requests would make a local gate
+ * fail on someone else's outage.
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+const WEBFLOW_URL =
+  "https://help.webflow.com/hc/en-us/articles/33961216978451-Embed-Rive-animations";
+const WEBFLOW_OK = [200, 403];
+
+console.log("\n" + "\u2500".repeat(64) + "\nwebflow host reachability\n");
+try {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  const res = await fetch(WEBFLOW_URL, {
+    redirect: "follow",
+    signal: controller.signal,
+    headers: { "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" },
+  });
+  clearTimeout(timer);
+  if (WEBFLOW_OK.includes(res.status)) {
+    console.log(
+      `  \u2713 ${res.status}${res.status === 403 ? " (Cloudflare challenge \u2014 expected; proves the host is up, NOT that the article exists)" : ""}` +
+        `  ${WEBFLOW_URL}`,
+    );
+  } else {
+    /* Only reachable if Cloudflare stops challenging; see the note above. */
+    bad(
+      `Webflow returned ${res.status} — expected 200, or 403 for the challenge. ` +
+        `${res.status === 404 ? "The article has moved or been deleted." : ""} ${WEBFLOW_URL}`,
+    );
+  }
+} catch (err) {
+  bad(
+    `could not reach help.webflow.com (${err.name === "AbortError" ? "timed out after 15s" : err.message}) — ` +
+      `this fails rather than skips, so a dead host cannot hide behind the expected 403. ${WEBFLOW_URL}`,
+  );
+}
+
   if (failures) {
     console.error(`\n✗ outbound links: ${failures} problem(s)`);
     process.exitCode = 1;

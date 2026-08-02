@@ -21,6 +21,13 @@
   list-style: none;
 }
 
+/* The <li> is now only a layout slot; the chip itself is the <a> or <span>
+   inside it, so the box lives on .runtime-chips__chip either way and the
+   anchor swap moves nothing. */
+.runtime-chips__item {
+  display: flex;
+}
+
 .runtime-chips__chip {
   padding: var(--space-2) var(--space-4);
   border: 1px solid var(--border-default);
@@ -29,4 +36,32 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-caption);
   color: var(--text-primary);
+  /* Both variants share the box exactly — an <a> would otherwise pick up the
+     UA underline and inline layout, and the two chips would no longer match. */
+  display: inline-block;
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+/* ---------------------------------------------------------- Linked chips only
+
+   Everything below is scoped to the anchor. The static chip inherits the box
+   above and NOTHING else: no cursor change, no hover accent, no focus ring —
+   and it is a <span>, so it never enters the tab order in the first place. A
+   chip that cannot be followed must not answer like one that can. */
+
+a.runtime-chips__chip:hover {
+  color: var(--text-accent);
+  border-color: var(--accent-default);
+}
+
+/* The house ring, as everywhere else. Inside the sheet it sits on
+   --surface-raised above the scrim, which is why the offset matters: at 0 the
+   2px amber would touch the chip's own border and read as a thick edge rather
+   than a ring. */
+a.runtime-chips__chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  color: var(--text-accent);
 }

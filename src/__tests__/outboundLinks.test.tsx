@@ -3,6 +3,19 @@ import { describe, it, expect } from "vitest";
 import { renderToString } from "react-dom/server";
 import AudienceRails from "../components/AudienceRails";
 import DeveloperZone from "../components/DeveloperZone";
+import RuntimeChips from "../components/UseCaseModal/RuntimeChips";
+import { USE_CASES } from "../components/UseCaseModal/useCaseContent";
+import { PLATFORM_DOCS, platformHref } from "../components/platformDocs";
+
+/** DeveloperZone's own spelling for each shared platform id. */
+const DEV_ZONE_LABEL: Record<string, string> = {
+  web: "WEB",
+  apple: "IOS",
+  android: "ANDROID",
+  flutter: "FLUTTER",
+  unity: "UNITY",
+  unreal: "UNREAL",
+};
 
 /**
  * Outbound destinations — the exact URLs, pinned.
@@ -110,6 +123,131 @@ describe("DeveloperZone — runtime chips", () => {
       expect(hrefFor(zoneHtml, label)).toBe(href);
     });
   }
+});
+
+/**
+ * The modals' "Runs on" chips. Pinned per modal AND per label, because the same
+ * label appears in several modals and a per-label-only pin could not tell a
+ * chip that moved from one that vanished.
+ */
+const MODAL_CHIPS: Record<string, Array<[string, string | null]>> = {
+  "product-ui": [
+    ["iOS", "https://rive.app/docs/runtimes/apple"],
+    ["Android", "https://rive.app/docs/runtimes/android"],
+    ["Flutter", "https://rive.app/docs/runtimes/flutter"],
+    ["React Native", "https://rive.app/docs/runtimes/react-native"],
+    ["Web", "https://rive.app/docs/runtimes/web"],
+    ["Framer", "https://rive.app/docs/editor/embed-urls/framer-and-rive"],
+    [
+      "Webflow",
+      "https://help.webflow.com/hc/en-us/articles/33961216978451-Embed-Rive-animations",
+    ],
+  ],
+  "game-ui": [
+    ["Unity", "https://rive.app/docs/game-runtimes/unity"],
+    ["Unreal", "https://rive.app/docs/game-runtimes/unreal"],
+    ["Defold", "https://rive.app/docs/game-runtimes/defold"],
+    /* The category's practical answer is the C++ runtime — same map entry as
+       DeveloperZone's C++ chip, not a second URL. */
+    ["Custom engines", "https://github.com/rive-app/rive-cpp"],
+  ],
+  websites: [
+    ["Web", "https://rive.app/docs/runtimes/web"],
+    ["Framer", "https://rive.app/docs/editor/embed-urls/framer-and-rive"],
+    [
+      "Webflow",
+      "https://help.webflow.com/hc/en-us/articles/33961216978451-Embed-Rive-animations",
+    ],
+  ],
+  /* null = deliberately link-less. No canonical destination exists for the
+     category, and an arbitrary pick would half-keep the label's promise. */
+  automotive: [["Embedded devices", null]],
+  "film-tv-broadcast": [
+    ["Web", "https://rive.app/docs/runtimes/web"],
+    ["Embedded devices", null],
+  ],
+  campaigns: [
+    ["iOS", "https://rive.app/docs/runtimes/apple"],
+    ["Android", "https://rive.app/docs/runtimes/android"],
+    ["Web", "https://rive.app/docs/runtimes/web"],
+  ],
+};
+
+describe("UseCaseModal — Runs on chips", () => {
+  it("covers every modal, with no modal left unpinned", () => {
+    expect(USE_CASES.map((c) => c.slug).sort()).toEqual(
+      Object.keys(MODAL_CHIPS).sort(),
+    );
+  });
+
+  it("pins 20 chips — 18 linked, 2 deliberately link-less", () => {
+    const all = Object.values(MODAL_CHIPS).flat();
+    expect(all).toHaveLength(20);
+    expect(all.filter(([, href]) => href !== null)).toHaveLength(18);
+    expect(all.filter(([, href]) => href === null)).toHaveLength(2);
+  });
+
+  for (const [slug, chips] of Object.entries(MODAL_CHIPS)) {
+    const entry = USE_CASES.find((c) => c.slug === slug);
+
+    it(`${slug}: chip labels and order`, () => {
+      expect(entry).toBeDefined();
+      expect(entry!.runtimes.map((r) => r.label)).toEqual(chips.map(([l]) => l));
+    });
+
+    for (const [label, href] of chips) {
+      it(`${slug} · ${label} → ${href ?? "(no link, by decision)"}`, () => {
+        const ref = entry!.runtimes.find((r) => r.label === label);
+        expect(ref).toBeDefined();
+        expect(platformHref(ref!)).toBe(href);
+      });
+    }
+
+    it(`${slug}: renders each chip, anchors only where a destination exists`, () => {
+      const html = renderToString(
+        <RuntimeChips runtimes={entry!.runtimes} label={slug} />,
+      );
+      for (const [label, href] of chips) {
+        const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const anchor = new RegExp(`<a\\b[^>]*>\\s*${escaped}\\s*</a>`).test(html);
+        expect(anchor).toBe(href !== null);
+        if (href) {
+          expect(hrefFor(html, label)).toBe(href);
+        } else {
+          /* Not an anchor, and carrying no tabindex — a chip that cannot be
+             followed must not be focusable, or the ring announces an
+             interaction that does not exist. */
+          const tag = html.match(
+            new RegExp(`<(\\w+)[^>]*class="runtime-chips__chip"[^>]*>\\s*${escaped}`),
+          )?.[1];
+          expect(tag).toBe("span");
+          expect(html).toMatch(
+            new RegExp(`<span[^>]*data-static="true"[^>]*>\\s*${escaped}`),
+          );
+          expect(html).not.toMatch(/tabindex/i);
+        }
+      }
+    });
+  }
+
+  it("every linked chip resolves through the shared map, not a literal", () => {
+    /* If a URL is ever inlined in useCaseContent again, this fails: every
+       linked ref must name a PLATFORM_DOCS key. */
+    const ids = new Set(Object.keys(PLATFORM_DOCS));
+    for (const c of USE_CASES) {
+      for (const r of c.runtimes) {
+        if (r.platform !== null) expect(ids.has(r.platform)).toBe(true);
+      }
+    }
+  });
+
+  it("shares its map with DeveloperZone rather than duplicating it", () => {
+    /* The six platforms on both surfaces must resolve to one string each. */
+    const shared = ["web", "apple", "android", "flutter", "unity", "unreal"] as const;
+    for (const id of shared) {
+      expect(PLATFORM_DOCS[id]).toBe(hrefFor(zoneHtml, DEV_ZONE_LABEL[id])!);
+    }
+  });
 });
 
 describe("every external link carries the full rel", () => {

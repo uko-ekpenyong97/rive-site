@@ -1,38 +1,34 @@
 import { useEffect, useRef, useState } from "react";
 import { html as snippetHtml, source as snippetSource } from "virtual:dev-zone-snippet";
 import SectionHeader from "./SectionHeader";
+import { PLATFORM_DOCS, type PlatformId, type PlatformRef } from "./platformDocs";
 import "./DeveloperZone.css";
-
-interface Runtime {
-  label: string;
-  href: string;
-}
 
 /**
  * The runtime chips and where each one goes.
  *
- * ONE DATA STRUCTURE, not hrefs scattered through JSX — the same shape
- * `useCaseContent` uses, so a docs reorg is one edit in one table and the href
- * pin in `src/__tests__/outboundLinks.test.tsx` diffs instead of the site 404ing
- * quietly.
+ * Destinations come from the shared PLATFORM_DOCS map, which the modals' "Runs
+ * on" chips also read — six platforms appear on both surfaces, and two lists
+ * would drift the moment Rive reorganises a docs section. The uppercase labels
+ * here are this section's own typography; the map is keyed by canonical id
+ * precisely so each surface keeps its own spelling.
  *
- * SOURCE: every URL read off rive.app/docs/runtimes/getting-started and verified
- * 200 on 2026-08-01. Three of them do not follow the pattern the labels suggest,
- * which is exactly why they are recorded rather than derived from the label:
- *   · IOS      → Rive publishes this as "Apple", not "ios"
- *   · UNITY    → lives under /game-runtimes/, not /runtimes/
- *   · UNREAL   → likewise /game-runtimes/
- *   · C++      → has no docs subpage at all; the GitHub repo IS the reference
+ * Typed as the LINKED variant of PlatformRef: every chip in this section has a
+ * destination, so the null case is excluded here rather than asserted away at
+ * the point of use. The modals' chips use the full PlatformRef, because one of
+ * theirs is deliberately link-less.
  */
-const RUNTIMES: Runtime[] = [
-  { label: "WEB", href: "https://rive.app/docs/runtimes/web" },
-  { label: "REACT", href: "https://rive.app/docs/runtimes/react" },
-  { label: "IOS", href: "https://rive.app/docs/runtimes/apple" },
-  { label: "ANDROID", href: "https://rive.app/docs/runtimes/android" },
-  { label: "FLUTTER", href: "https://rive.app/docs/runtimes/flutter" },
-  { label: "UNITY", href: "https://rive.app/docs/game-runtimes/unity" },
-  { label: "UNREAL", href: "https://rive.app/docs/game-runtimes/unreal" },
-  { label: "C++", href: "https://github.com/rive-app/rive-cpp" },
+type LinkedRuntime = PlatformRef & { platform: PlatformId };
+
+const RUNTIMES: LinkedRuntime[] = [
+  { label: "WEB", platform: "web" },
+  { label: "REACT", platform: "react" },
+  { label: "IOS", platform: "apple" },
+  { label: "ANDROID", platform: "android" },
+  { label: "FLUTTER", platform: "flutter" },
+  { label: "UNITY", platform: "unity" },
+  { label: "UNREAL", platform: "unreal" },
+  { label: "C++", platform: "cpp" },
 ];
 
 /** The two section links under the chips. */
@@ -110,11 +106,11 @@ export function DeveloperZone() {
               from the <span> they replaced — same padding, border, radius and
               mono 12px — so becoming clickable costs no layout shift. */}
           <div className="developer-zone__pills">
-            {RUNTIMES.map(({ label, href }) => (
+            {RUNTIMES.map(({ label, platform }) => (
               <a
                 key={label}
                 className="developer-zone__pill"
-                href={href}
+                href={PLATFORM_DOCS[platform]}
                 target="_blank"
                 rel="noopener noreferrer"
               >

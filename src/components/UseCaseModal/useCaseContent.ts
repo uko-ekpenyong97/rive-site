@@ -29,6 +29,7 @@
  * ────────────────────────────────────────────────────────────────────────── */
 
 import healthBarRivUrl from "../../assets/rive/health_bar_use_case.riv?url";
+import type { PlatformRef } from "../platformDocs";
 import noseyRivUrl from "../../assets/rive/nosey.riv?url";
 import avatarRivUrl from "../../assets/rive/character_animation.riv?url";
 import drivingRivUrl from "../../assets/rive/driving_ui_concept.riv?url";
@@ -332,7 +333,12 @@ export interface UseCaseContent {
    * depth, and a lite modal that also shipped a strip would stop being lite.
    */
   community?: CommunityItem[];
-  runtimes: string[];
+  /**
+   * "Runs on" chips. Each entry names a platform and points at its docs through
+   * the shared PLATFORM_DOCS map; `platform: null` marks a chip that is
+   * deliberately not a link (see PlatformRef).
+   */
+  runtimes: PlatformRef[];
   /**
    * The escape valve: the full use-case page, deliberately last (§4). Optional —
    * when a use case has no page of its own (Campaigns, whose depth lives in the
@@ -482,13 +488,13 @@ export const USE_CASES: UseCaseContent[] = [
       },
     ],
     runtimes: [
-      "iOS",
-      "Android",
-      "Flutter",
-      "React Native",
-      "Web",
-      "Framer",
-      "Webflow",
+      { label: "iOS", platform: "apple" },
+      { label: "Android", platform: "android" },
+      { label: "Flutter", platform: "flutter" },
+      { label: "React Native", platform: "react-native" },
+      { label: "Web", platform: "web" },
+      { label: "Framer", platform: "framer" },
+      { label: "Webflow", platform: "webflow" },
     ],
     pageHref: "https://rive.app/use-cases/product-design",
   },
@@ -614,7 +620,12 @@ export const USE_CASES: UseCaseContent[] = [
         license: "CC BY",
       },
     ],
-    runtimes: ["Unity", "Unreal", "Defold", "Custom engines"],
+    runtimes: [
+      { label: "Unity", platform: "unity" },
+      { label: "Unreal", platform: "unreal" },
+      { label: "Defold", platform: "defold" },
+      { label: "Custom engines", platform: "cpp" },
+    ],
     pageHref: "https://rive.app/game-ui",
   },
 
@@ -724,7 +735,11 @@ export const USE_CASES: UseCaseContent[] = [
         claim: "Design, animate, and wire up behavior in one tool.",
       },
     ],
-    runtimes: ["Web", "Framer", "Webflow"],
+    runtimes: [
+      { label: "Web", platform: "web" },
+      { label: "Framer", platform: "framer" },
+      { label: "Webflow", platform: "webflow" },
+    ],
     pageHref: "https://rive.app/use-cases/websites",
   },
   {
@@ -822,7 +837,9 @@ export const USE_CASES: UseCaseContent[] = [
         claim: "View models bind the design to real vehicle data.",
       },
     ],
-    runtimes: ["Embedded devices"],
+    runtimes: [
+      { label: "Embedded devices", platform: null },
+    ],
     pageHref: "https://rive.app/use-cases/automotive",
   },
   {
@@ -931,7 +948,10 @@ export const USE_CASES: UseCaseContent[] = [
         claim: "Live data drives on-air graphics from the same file.",
       },
     ],
-    runtimes: ["Web", "Embedded devices"],
+    runtimes: [
+      { label: "Web", platform: "web" },
+      { label: "Embedded devices", platform: null },
+    ],
     pageHref: "https://rive.app/use-cases/film-tv",
   },
   {
@@ -997,7 +1017,11 @@ export const USE_CASES: UseCaseContent[] = [
       text: "Motion isn't just decoration here, it's core infrastructure.",
       attribution: "Guido Rosso, Rive co-founder",
     },
-    runtimes: ["iOS", "Android", "Web"],
+    runtimes: [
+      { label: "iOS", platform: "apple" },
+      { label: "Android", platform: "android" },
+      { label: "Web", platform: "web" },
+    ],
     /* No pageHref: there is no Campaigns use-case page, and the Spotify
        Wrapped depth lives in the CaseStudies section. This modal ends at
        "Get started" — the case the optional field exists for. */
