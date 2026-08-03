@@ -85,6 +85,18 @@
  * the day this was written — a human looked at two of them and saw the labels
  * recut — and they remain the check on the numbers.
  *
+ * CORRECTION TO 46fa4b2: beat 4's change is confirmed; the "recut in Tomorrow,
+ * left-aligned" characterization compared frames at different animation phases
+ * and overstates the how. The embedded-Tomorrow byte evidence stands; the visual
+ * description should be re-derived from frozen same-phase frames if it ever
+ * matters.
+ *
+ * That correction is itself the argument for this tool. The frames that produced
+ * it were captured free-running, and the label's appearance varies across the
+ * beat's own timeline — the NEW file at 2000ms frozen shows the wide style the
+ * commit message called "before". Reading a diff off two unsynchronised frames
+ * is how a true observation ("beat 4 changed") acquires a false explanation.
+ *
  * THIS SCRIPT TEMPORARILY OVERWRITES src/assets/rive/loop.riv, because the
  * component imports it by a build-time URL. The original bytes are held in
  * memory and restored in a `finally` and on SIGINT/SIGTERM.

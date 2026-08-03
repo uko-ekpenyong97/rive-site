@@ -38,6 +38,18 @@
 - **Stale worktree** — ~/Downloads/rive-redesign holds main at
   2838eb4, now 50+ behind. Pull before any work there; never pull it
   from a Conductor worktree.
+- **beats:diff freeze residue (low priority)** — 3 of 10 cells do
+  not freeze reproducibly: beat 2 @7000ms and beat 3 at both
+  targets, drifting 0.04-0.08 mad (0.12-0.24% of pixels) between
+  two cold loads of the SAME file. They are reported as
+  indeterminate and counted neither way, so the tool is honest
+  rather than wrong — but those beats cannot currently be A/B'd.
+  Suspect a clock consumer the freeze does not cover: rAF and
+  performance.now() are both virtualised, so the candidates are
+  setTimeout/setInterval, Date.now, or timing inside the Rive wasm
+  that never reaches JS. Chasing it means finding what beats 2 and
+  3 do that 1, 4 and 5 do not (WirePerformance is a 4s timeline,
+  LoadingSustain 2s — both longer than the others' poses).
 - **verify:live proposal** — the "renders correctly, functions not
   at all" failure class (useRive attach deadlock, AudienceRails
   glyphs incident) has no systematic guard. Proposal: headless-
