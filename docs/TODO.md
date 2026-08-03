@@ -51,6 +51,8 @@
   branch:main for fast-forwards), run the full gate in it, push
   HEAD:main, remove the worktree. Never touch the stale
   ~/Downloads checkout.
+- **Loop re-exports**: npm run beats:diff before committing the
+  swap — confirm the beats you changed are the beats that changed.
 
 # Done
 
