@@ -3,3 +3,14 @@ node_modules/
 dist-app/
 *.tsbuildinfo
 .vercel
+
+# Secrets. Nothing matching these may ever be committed.
+#
+# Added 2026-08-03 after a near miss: a deploy step called for putting
+# VERCEL_AUTOMATION_BYPASS_SECRET in .env.local, and this file had no env rule at
+# all — so the secret would have been staged by the next `git add -A` and pushed
+# to a public repo. Nothing leaked (no .env* was ever tracked; `git log -S` across
+# all branches is empty), but only because the file had not been created yet.
+.env
+.env.*
+!.env.example
