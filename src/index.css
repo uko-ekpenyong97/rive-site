@@ -1,3 +1,6 @@
+/* Self-hosted webfaces. Must lead the file: @import may not follow other rules. */
+@import "./fonts.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

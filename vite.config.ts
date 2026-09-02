@@ -90,10 +90,76 @@ function devZoneSnippet(): Plugin {
 }
 
 // https://vite.dev/config/
+/**
+ * Strips remote `@import url(https://…)` from DEPENDENCY CSS.
+ *
+ * THE HOLE THIS CLOSES: `dialkit/dist/styles.css` carries
+ * `@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900')`.
+ * Vite cannot inline a remote @import, so it survives into the Showcase chunk and
+ * /showcase fetches a nine-weight family from Google at runtime — measured on the
+ * first deployment: `/` made 4 Google requests, `/showcase` made 7.
+ *
+ * That is a third-party dependency reintroduced BY a dependency, in a project
+ * that self-hosts its wasm and its webfonts precisely so no third party can empty
+ * the page. The alternative was allow-listing Geist Mono in check:offline; it was
+ * rejected. An allow-list is a documented hole, and the reason this guard exists
+ * at all is that the last one had an exception shaped exactly like that.
+ *
+ * Geist Mono dresses DialKit's tuning panel, which DialRoot hides in production.
+ * Losing it costs a dev-only surface its preferred mono and nothing else.
+ *
+ * FAILS THE BUILD ON ZERO MATCHES. If dialkit drops or renames the import, a
+ * plugin that silently matched nothing would sit in this config looking like
+ * protection while the gap reopened on the next dependency bump. A guard that
+ * cannot tell "nothing to do" from "no longer working" is not a guard. Lower
+ * `expect` deliberately, with a note, if the import genuinely goes away.
+ */
+function stripRemoteCssImports(expect = 1): Plugin {
+  const REMOTE_IMPORT =
+    /@import\s+(?:url\(\s*)?['"]?(https?:\/\/[^'")\s]+)['"]?\s*\)?\s*;?/g;
+  const stripped: { url: string; from: string }[] = [];
+
+  return {
+    name: "strip-remote-css-imports",
+    enforce: "pre",
+    apply: "build",
+
+    transform(code: string, id: string) {
+      if (!id.endsWith(".css")) return null;
+      /* Dependency CSS only. Our own stylesheets are ours to police in review;
+         silently rewriting them would hide a mistake rather than surface it. */
+      if (!id.includes("node_modules")) return null;
+      REMOTE_IMPORT.lastIndex = 0;
+      if (!REMOTE_IMPORT.test(code)) return null;
+      REMOTE_IMPORT.lastIndex = 0;
+
+      const out = code.replace(REMOTE_IMPORT, (_m: string, url: string) => {
+        stripped.push({ url, from: id.split("node_modules/")[1] ?? id });
+        return `/* remote @import removed by strip-remote-css-imports: ${url} */`;
+      });
+      return { code: out, map: null };
+    },
+
+    buildEnd(this: { info: (m: string) => void; error: (m: string) => never }) {
+      for (const s of stripped)
+        this.info(`stripped remote @import  ${s.url}  (from ${s.from})`);
+      if (stripped.length < expect) {
+        this.error(
+          `strip-remote-css-imports expected at least ${expect} remote @import(s) in ` +
+            `dependency CSS and found ${stripped.length}. Either a dependency dropped ` +
+            `the import — lower \`expect\` on purpose, with a note — or this plugin has ` +
+            `stopped matching and the third-party font request is back. Failing rather ` +
+            `than passing silently, because a no-op guard is how the gap reopens.`,
+        );
+      }
+    },
+  };
+}
+
 export default defineConfig({
   // svgr lets us import SVGs as inline React components (`?react`), so their
   // currentColor / var() fills are driven by CSS.
-  plugins: [react(), svgr(), devZoneSnippet()],
+  plugins: [react(), svgr(), devZoneSnippet(), stripRemoteCssImports(1)],
   build: {
     // The existing dist/ folder holds generated token files (tokens.css,
     // tailwind.tokens.cjs). Vite empties its outDir on build, so send the

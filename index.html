@@ -4,11 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rive — Redesign Study by Uko Ekpenyong</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- The display face, above the fold in the hero H1. Preloaded because it
+         is discovered late otherwise: the browser has to fetch and parse the CSS
+         bundle before it learns this file exists. The other seven faces are not
+         preloaded — they would compete with this one for the same connection. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Tomorrow:wght@400;500;700&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/tomorrow-400.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
   </head>
   <body>

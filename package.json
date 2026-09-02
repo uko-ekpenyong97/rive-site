@@ -28,7 +28,8 @@
     "check:rag": "node scripts/check-hero-rag.mjs",
     "check:links": "node scripts/check-links.mjs",
     "check:stack": "node scripts/check-stack.mjs",
-    "beats:diff": "node scripts/check-loop-beats.mjs"
+    "beats:diff": "node scripts/check-loop-beats.mjs",
+    "fonts:fetch": "node scripts/fetch-fonts.mjs"
   },
   "dependencies": {
     "@rive-app/react-webgl2": "^4.30.0",

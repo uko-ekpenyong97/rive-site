@@ -1,8 +1,16 @@
 # NEXT UP
 
-- _(empty — self-hosting the Rive wasm landed 2026-08-01; see Done)_
+- _(empty — self-hosting the webfonts landed 2026-08-03; see Done)_
 
 # Follow-ups
+
+- **ui-sans-serif stragglers** — a handful of text-bearing elements
+  compute to `ui-sans-serif` (Tailwind's default stack) rather than a
+  `--font-*` token; seen on both `/` and `/showcase`, e.g.
+  `.hero__wordmark`. Ordinary cleanup: find them and point them at
+  the token. Harmless today because the fallback is a system sans,
+  but it means the design system is not actually governing every
+  glyph on the page.
 
 - **Batched Figma component sync** — one session, six components:
   ModalSheet, StateRail, CreditChip, ProofCard, TileVideo, RiveButton.
@@ -67,6 +75,25 @@
   swap — confirm the beats you changed are the beats that changed.
 
 # Done
+
+- **Self-hosted the webfonts** (2026-08-03) — same rationale as the
+  Rive wasm, and the gap it closed was embarrassing in the same shape:
+  the site committed 4.8 MB of wasm so a CDN incident could not empty
+  its animated surfaces, then fetched its display face from Google, so
+  the same incident would have left it in Times New Roman. Measured on
+  the first deployment: FCP 1216 ms against DOM-interactive 190 ms —
+  text paint was waiting on a third-party round trip.
+  Tomorrow / Inter / JetBrains Mono, all SIL OFL (verified against
+  OFL.txt in github.com/google/fonts, texts shipped in public/fonts/),
+  8 latin-subset woff2 faces totalling 138 kB, `font-display: swap`.
+  The face list changed in both directions once the RENDERED weights
+  were measured rather than assumed: Inter 600 was in use and never
+  requested (faux-bold since CaseStudies shipped), JetBrains Mono 500
+  was downloaded on every visit and never drawn.
+  `check:offline` now blocks fonts.googleapis.com and fonts.gstatic.com
+  alongside the wasm CDNs, and asserts the faces are both loaded and
+  DRAWING — "zero Google requests" is satisfied just as well by
+  silently falling back to a system font.
 
 - **Self-host rive.wasm** (2026-08-01) — the runtime no longer fetches
   from unpkg. Both binaries are committed under public/rive/runtime/

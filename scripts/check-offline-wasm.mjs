@@ -42,8 +42,34 @@ const args = process.argv.slice(2);
 const urlArg = args.indexOf("--url");
 const URL_ = urlArg >= 0 ? args[urlArg + 1] : "http://localhost:5173/";
 
-const CDN_PATTERNS = ["*unpkg.com*", "*cdn.jsdelivr.net*"];
-const CDN_HOSTS = ["unpkg.com", "cdn.jsdelivr.net"];
+/* unpkg/jsdelivr serve the Rive wasm; fonts.googleapis/gstatic served the
+   webfonts until they were self-hosted. All four are third parties whose outage
+   would degrade this page, so all four are blocked and all four are asserted
+   never-requested. The font hosts were added on 2026-08-03: the first deployment
+   self-hosted 4.8 MB of wasm to survive a CDN incident and then fetched its
+   display face from Google, so this guard had a hole shaped exactly like the
+   thing it was built for. */
+const CDN_PATTERNS = [
+  "*unpkg.com*",
+  "*cdn.jsdelivr.net*",
+  "*fonts.googleapis.com*",
+  "*fonts.gstatic.com*",
+];
+const CDN_HOSTS = [
+  "unpkg.com",
+  "cdn.jsdelivr.net",
+  "fonts.googleapis.com",
+  "fonts.gstatic.com",
+];
+
+/* Every face the site declares. Blocking Google and finding zero requests is
+   satisfied just as well by silently falling back to Times New Roman, so the
+   fonts are asserted to be LOADED and to be DRAWING — see FONT_CHECK. */
+const EXPECTED_FACES = [
+  ["Tomorrow", 400], ["Tomorrow", 500], ["Tomorrow", 700],
+  ["Inter", 400], ["Inter", 500], ["Inter", 600], ["Inter", 700],
+  ["JetBrains Mono", 400],
+];
 
 /** Every Rive surface reachable on Home, and where it lives. */
 const SURFACES = [
@@ -250,9 +276,84 @@ try {
   const cdnHits = (list) => list.filter((u) => CDN_HOSTS.some((h) => u.includes(h)));
   const wasmHits = (list) => list.filter((u) => /\.wasm(\?|$)/i.test(u));
 
+  /**
+   * Are the self-hosted faces actually LOADED AND DRAWING?
+   *
+   * "Zero requests to Google" is satisfied perfectly by a page that quietly
+   * renders in Times New Roman, so absence of a request proves nothing on its
+   * own. Two assertions, because each catches what the other misses:
+   *
+   *   1. document.fonts reports every declared face with status "loaded".
+   *   2. A glyph-advance measurement: the same string measured in the real
+   *      family and in a deliberately-absent family that falls back to the
+   *      system stack. If the widths match, the real face is NOT drawing —
+   *      which is exactly what document.fonts can miss when a face is loaded
+   *      but the element never resolves to it.
+   */
+  const checkFonts = async () => {
+    return evaluate(`(async () => {
+      await document.fonts.ready;
+      const want = ${JSON.stringify(EXPECTED_FACES)};
+      const have = [...document.fonts].map((f) => [
+        f.family.replace(/["']/g, ""), parseInt(f.weight, 10) || f.weight, f.status,
+      ]);
+
+      /* Only the faces this PAGE actually renders can be required to have
+         loaded. A browser fetches a face lazily, when something uses it — so on
+         the home page Tomorrow 500/700 are declared, correct, and legitimately
+         "unloaded" because only /showcase draws them. Demanding all eight here
+         would fail on correct lazy behaviour. The glyph-advance test below is
+         what covers all eight regardless of the route. */
+      const used = new Set();
+      for (const el of document.querySelectorAll("*")) {
+        let hasText = false;
+        for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) hasText = true;
+        if (!hasText) continue;
+        const cs = getComputedStyle(el);
+        used.add(cs.fontFamily.split(",")[0].replace(/["']/g, "").trim() + "|" + cs.fontWeight);
+      }
+      const missing = want
+        .filter(([fam, w]) => used.has(fam + "|" + w))
+        .filter(([fam, w]) =>
+          !have.some(([hf, hw, st]) => hf === fam && String(hw) === String(w) && st === "loaded"));
+      const usedCount = want.filter(([fam, w]) => used.has(fam + "|" + w)).length;
+
+      /* Glyph advance: real family vs a guaranteed-absent one. */
+      const probe = document.createElement("span");
+      probe.style.cssText =
+        "position:absolute;left:-9999px;top:0;white-space:pre;font-size:64px;visibility:hidden";
+      probe.textContent = "HAMBURGEFONTSIV 0123456789";
+      document.body.appendChild(probe);
+      const widthIn = (family, weight) => {
+        probe.style.fontFamily = family;
+        probe.style.fontWeight = String(weight);
+        return +probe.getBoundingClientRect().width.toFixed(2);
+      };
+      const fallback = widthIn('"__NoSuchFace__", sans-serif', 400);
+      const drawing = {};
+      for (const [fam, w] of want) {
+        /* FORCE THE FETCH FIRST. A face is loaded lazily, on first use, so
+           setting font-family and measuring in the same tick measures the
+           FALLBACK and reports a perfectly good face as "not drawing". Measured
+           that exact false positive on Tomorrow 500, which only /showcase uses.
+           document.fonts.load resolves once the face is actually usable. */
+        try { await document.fonts.load(w + ' 64px "' + fam + '"', probe.textContent); }
+        catch (e) { void e; }
+        const real = widthIn('"' + fam + '", sans-serif', w);
+        drawing[fam + " " + w] = { width: real, distinctFromFallback: Math.abs(real - fallback) > 0.5 };
+      }
+      probe.remove();
+      const notDrawing = Object.entries(drawing)
+        .filter(([, v]) => !v.distinctFromFallback)
+        .map(([k]) => k);
+      return { loadedCount: have.filter((h) => h[2] === "loaded").length, missing, usedCount,
+               fallbackWidth: fallback, drawing, notDrawing };
+    })()`);
+  };
+
   /* ───────────────────────────────── PASS 1: CDNs BLOCKED ───────────────── */
   console.log(`Self-hosted Rive wasm — ${URL_}\n`);
-  console.log("PASS 1 — unpkg.com and cdn.jsdelivr.net BLOCKED, cold cache");
+  console.log("PASS 1 — unpkg / jsdelivr / fonts.googleapis / fonts.gstatic BLOCKED, cold cache");
 
   const blockedRun = await run(true);
   const blockedRequests = [...requests];
@@ -338,6 +439,32 @@ try {
     ok("no CDN requests attempted");
   }
   for (const w of [...new Set(wasmHits(blockedRequests))]) note(`wasm fetched: ${w}`);
+
+  /* THE FONTS, under the same blocking. Zero Google requests is trivially met by
+     falling back to system faces, so this proves the real ones are drawing. */
+  const fonts = await checkFonts();
+  if (fonts.missing.length) {
+    bad(
+      `${fonts.missing.length} face(s) rendered on this page but not loaded: ` +
+        fonts.missing.map(([f, w]) => `${f} ${w}`).join(", "),
+    );
+  } else {
+    ok(
+      `all ${fonts.usedCount} face(s) this page renders report status "loaded" ` +
+        `(${EXPECTED_FACES.length} declared; the rest load lazily on the routes that use them)`,
+    );
+  }
+  if (fonts.notDrawing.length) {
+    bad(
+      `${fonts.notDrawing.length} face(s) measure identical to the system fallback ` +
+        `(${fonts.fallbackWidth}px) — loaded but NOT drawing: ${fonts.notDrawing.join(", ")}`,
+    );
+  } else {
+    ok(
+      `all ${EXPECTED_FACES.length} faces draw at a width distinct from the ` +
+        `${fonts.fallbackWidth}px system fallback`,
+    );
+  }
 
   /* ───────────────────────────── PASS 2: NORMAL LOAD ────────────────────── */
   console.log("\nPASS 2 — no blocking, cold cache (the override must be the ONLY path)");
