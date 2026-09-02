@@ -4,6 +4,14 @@
 
 # Follow-ups
 
+- **FCP is JS-bound** — first paint waits on the 544 kB main chunk
+  mounting into an empty root (~1500 ms), while all fonts land by
+  ~450 ms. Lever is prerendering the hero / splitting the main
+  chunk, NOT assets. Baseline: 1552 ms median, 15-sample
+  methodology in deploy.md. The +416 ms vs Google Fonts is
+  attributed to same-origin font/JS connection contention —
+  HYPOTHESIS, unverified; verify before optimizing against it.
+
 - **ui-sans-serif stragglers** — a handful of text-bearing elements
   compute to `ui-sans-serif` (Tailwind's default stack) rather than a
   `--font-*` token; seen on both `/` and `/showcase`, e.g.

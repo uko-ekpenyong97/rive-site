@@ -37,6 +37,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
 
+import { previewAuthHeaders } from "./lib/preview-auth.mjs";
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const args = process.argv.slice(2);
 const urlArg = args.indexOf("--url");
@@ -144,6 +145,14 @@ try {
   };
 
   await send("Page.enable");
+  /* A protected Vercel preview answers a headless browser with a login page, so
+     every assertion after this would measure Vercel's auth screen. Empty against
+     localhost and against unprotected production. */
+  const __auth = previewAuthHeaders();
+  if (Object.keys(__auth).length) {
+    await send("Network.enable");
+    await send("Network.setExtraHTTPHeaders", { headers: __auth });
+  }
   await send("Runtime.enable");
   await send("Network.enable");
 

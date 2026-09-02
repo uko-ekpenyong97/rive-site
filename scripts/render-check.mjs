@@ -25,6 +25,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { previewAuthHeaders } from "./lib/preview-auth.mjs";
 const args = process.argv.slice(2);
 const urlArg = args.indexOf("--url");
 const URL_ = urlArg >= 0 ? args[urlArg + 1] : "http://localhost:5173";
@@ -86,7 +87,13 @@ try {
   const port = await devtoolsPort();
   const target = await (
     await fetch(
-      `http://127.0.0.1:${port}/json/new?${encodeURIComponent(URL_)}`,
+      /* about:blank, NOT the target URL. /json/new navigates as it creates the
+         tab, which happens before this process has a CDP connection to set
+         headers on — so against a protected Vercel preview the page was already
+         Vercel's login screen by the time anything could authenticate, and every
+         assertion below measured an empty document. Navigate explicitly instead,
+         after the headers are in place. */
+      `http://127.0.0.1:${port}/json/new?about:blank`,
       { method: "PUT" },
     )
   ).json();
@@ -137,6 +144,17 @@ try {
   };
 
   await send("Runtime.enable");
+  /* A protected Vercel preview answers a headless browser with a login page, so
+     every assertion after this would measure Vercel's auth screen. Empty against
+     localhost and against unprotected production. */
+  const __auth = previewAuthHeaders();
+  if (Object.keys(__auth).length) {
+    await send("Network.enable");
+    await send("Network.setExtraHTTPHeaders", { headers: __auth });
+  }
+
+  await send("Page.enable");
+  await send("Page.navigate", { url: URL_ });
 
   // The section is below the fold and the glyphs are gated on approach, so
   // scroll it into view and give the observer + fetch + first frame time to land.

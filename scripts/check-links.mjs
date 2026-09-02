@@ -27,6 +27,8 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { previewAuthHeaders } from "./lib/preview-auth.mjs";
+
 const args = process.argv.slice(2);
 const urlArg = args.indexOf("--url");
 const URL_ = urlArg >= 0 ? args[urlArg + 1] : "http://localhost:5173/";
@@ -189,6 +191,14 @@ try {
   };
 
   await send("Page.enable");
+  /* A protected Vercel preview answers a headless browser with a login page, so
+     every assertion after this would measure Vercel's auth screen. Empty against
+     localhost and against unprotected production. */
+  const __auth = previewAuthHeaders();
+  if (Object.keys(__auth).length) {
+    await send("Network.enable");
+    await send("Network.setExtraHTTPHeaders", { headers: __auth });
+  }
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", {
     width: 1440,
