@@ -108,3 +108,4 @@
   asserts every surface still mounts and paints, plus zero CDN requests
   on a normal load. Re-export step on every runtime upgrade — noted in
   CLAUDE.md's asset section.
+
